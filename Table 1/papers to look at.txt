@@ -1,0 +1,10 @@
+shenoy group for monkeys; keep inagaki more recent, yang, economo, xu, steinmetz, guan
+ask chand/kenji
+jrclust paper
+new columns: probe type, part of the brain, organism, ISI violation fraction
+striatum, thalamus, hippocampus recordings (non-cortical)
+anne churchland
+censor period?
+10 is good, just swap out ones we have
+jrclust, 0.5 or 1 ms
+could check manually for censor period
