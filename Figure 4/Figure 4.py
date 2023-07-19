@@ -26,6 +26,9 @@ from scipy.optimize import minimize_scalar
 from scipy.stats import cauchy
 from scipy.interpolate import splev, splrep
 from sklearn.metrics import r2_score
+from scipy import stats
+from scipy import interpolate
+from scipy.ndimage import gaussian_filter1d
 
 # %% classes
 
@@ -53,10 +56,266 @@ class RecTimeSim():
         self.true_FDRs = true_FDRs
         self.Rtots = Rtots
         
+class ISIvSim():
+    
+    def __init__(self, Fvs_low, Fvs_mid, Fvs_high):
+        
+        self.Fvs_low = Fvs_low
+        self.Fvs_mid = Fvs_mid
+        self.Fvs_high = Fvs_high
+        
+class fullSim():
+    
+    def __init__(self, pred_FDR, covs, FDRs, Rtots, N_con):
+       
+        self.pred_FDR = pred_FDR
+        self.covs = covs
+        self.FDRs = FDRs
+        self.Rtots = Rtots
+        self.N_con = N_con
+        
+# %% picking good vals
+        
+@np.vectorize
+def kleinfeld_eq(Rtot, F_v, tviol=0.0025, t_c=0):
+
+    a = -2*(tviol-t_c)*Rtot
+    b = 2*(tviol-t_c)*Rtot
+    c = -F_v
+    
+    if Rtot != 0:
+        FDR = (-b + (b**2 - 4*a*c)**(1/2))/(2*a)
+    else:
+        FDR = 0
+    
+    if b**2 - 4*a*c < 0:
+        FDR = float('NaN')
+    
+    if isinstance(FDR, complex):
+        FDR = 0.5
+
+    return FDR
+
+Rtot = 8
+print(kleinfeld_eq(Rtot, 0.005))
+
+Rout = kleinfeld_eq(Rtot, 0.005)*Rtot
+Rin = Rtot - Rout
+        
+        
+# %% ISIv is normally distributed and variance scales inversely with recording 
+#### time, panel A
+
+# low, mid, and high recording times
+Fvs_low = []
+Fvs_mid = []
+Fvs_high = [] 
+
+for _ in range(1000):
+    Fvs_low.append(neuronsim.sim_Fv(Rin, Rout, t_stop=600, N=1, out_refrac=2.5)[0])
+    Fvs_mid.append(neuronsim.sim_Fv(Rin, Rout, t_stop=1800, N=1, out_refrac=2.5)[0])
+    Fvs_high.append(neuronsim.sim_Fv(Rin, Rout, t_stop=7200, N=1, out_refrac=2.5)[0])
+    
+sim = ISIvSim(Fvs_low, Fvs_mid, Fvs_high)
+
+JV_utils.save_sim(sim, 'ISIvSim')    
+    
 # %%
+
+sim = JV_utils.load_sim('ISIvSim_07-13-2023')
+
+Fvs_low = sim.Fvs_low
+Fvs_mid = sim.Fvs_mid
+Fvs_high = sim.Fvs_high
+
+def fit_plot_pdf(Fvs, ax, c):
+    
+    mu, sigma = stats.norm.fit(Fvs)
+    points = np.linspace(stats.norm.ppf(0.0001,loc=mu,scale=sigma),
+                     stats.norm.ppf(0.9999,loc=mu,scale=sigma),1000)
+    pdf = stats.norm.pdf(points,loc=mu,scale=sigma)
+    
+    ax.plot(points, pdf, color=c)
+    # plt.hist(Fvs, color=c)
+    plt.fill_between(points,pdf, color=c, alpha=0.5)
+    
+    
+fig, ax = plt.subplots()
+
+fit_plot_pdf(Fvs_low, ax, 'r')
+fit_plot_pdf(Fvs_mid, ax, 'g')
+fit_plot_pdf(Fvs_high, ax, 'b')
+
+ax.set_ylim(0)
+
+ax.vlines(0.005, 0, 1000)
+
+plt.tight_layout()
+
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+
+# %% load in and preprocess PSTHs
 
 mat_contents = sio.loadmat('hidehiko_PSTHs')
 PSTHs = mat_contents['PSTHs']
+
+t = np.linspace(0, 6, 120)
+t_new = np.linspace(0, 6, 1000)
+
+PSTHs_new = []
+for i in range(len(PSTHs)):
+    smoothed = gaussian_filter1d(PSTHs[i], 3)
+    f = interpolate.interp1d(t, smoothed, kind='cubic')
+    y_new = f(t_new)
+    PSTHs_new.append(y_new)
+    
+PSTHs = np.vstack(PSTHs_new)
+
+# %% predicted vs true across a range of conditions, panel B, simulation
+
+from random import choices, sample, uniform
+from scipy.optimize import minimize_scalar
+
+from JV_utils import FDR_master
+
+def Rout_scale_ob(scale, args):
+    Rout_old, Rout_avg_new = args
+    return abs(np.average(scale*Rout_old) - Rout_avg_new)
+
+done = 0
+while done == 0:
+    
+    k = 100
+    
+    N_con = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    N_con = np.array(choices(N_con, k=k), dtype='float')
+    N_con[N_con == 10] = float('inf')
+    
+    Rtots = [1, 10]
+    Rtots = np.random.uniform(Rtots[0], Rtots[1], size=k)
+    
+    FDRs = []
+    for i in range(k):
+        FDR_max = N_con[i]/(N_con[i] + 1)
+        if N_con[i] == float('inf'):
+            FDR_max = 1
+        FDRs.append(uniform(0, FDR_max))
+        
+    PSTH_idx = list(range(len(PSTHs)))
+    idx_pairs = []
+    for _ in range(k):
+        idx_pairs.append(sample(PSTH_idx, 2))
+    
+    pred_FDR = []  
+    
+    covs = []    
+        
+    for i in range(k):
+        
+        Rin = PSTHs[idx_pairs[i][0]]
+        Rout = PSTHs[idx_pairs[i][1]]
+        Rin[Rin<0] = 0
+        Rout[Rout<0] = 0
+        
+        Rout_target = FDRs[i]*Rtots[i]
+        Rin_target = Rtots[i] - Rout_target
+        
+        scale = minimize_scalar(Rout_scale_ob, args=[Rin, Rin_target], 
+                            method='bounded', bounds=[0, 100]).x
+        Rin = Rin*scale
+    
+        scale = minimize_scalar(Rout_scale_ob, 
+                            args=[Rout, (FDRs[i]/(1-FDRs[i]))*np.average(Rin)],
+                            method='bounded', bounds=[0, 100]).x
+        
+        Rout = scale*Rout
+        
+        Rtot = Rin + Rout
+        
+        center = np.average(Rin)*np.average(Rout[0])
+        covs.append(np.cov(Rin, Rout)[0,1])
+        
+        Fv = neuronsim.sim_Fv_PSTH4(Rin, Rout, out_refrac=2.5, 
+                                    neurons=N_con[i], N=100)
+        
+        
+        single_pred = FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i])
+        
+        if np.isnan(single_pred):
+            single_pred = N_con[i]/(N_con[i] + 1)
+            if N_con[i] == float('inf'):
+                single_pred = 1
+        
+        pred_FDR.append(single_pred)
+        
+    # if sum(np.isnan(np.array(pred_FDR))) == 0:
+    done = 1
+        
+    sim = fullSim(pred_FDR, covs, FDRs, Rtots, N_con)
+    
+    JV_utils.save_sim(sim, 'fullSim')
+
+# %% plotting
+
+import matplotlib as mpl
+
+sim = JV_utils.load_sim('fullSim_07-15-2023_1')
+pred_FDR = sim.pred_FDR
+covs = sim.covs
+FDRs = sim.FDRs
+Rtots = sim.Rtots
+N_con = sim.N_con
+
+pred_FDR = np.array(pred_FDR)
+FDRs = np.array(FDRs)
+
+pred_FDR[np.isnan(pred_FDR)] = 0.75
+
+idxs = np.array(N_con) == 1
+fig, ax = plt.subplots()
+plt.scatter(pred_FDR, FDRs, c='blue', s=24)
+plt.plot([0, 1], [0, 1], ls='dashed', c='k', lw=2)
+plt.xlabel('Predicted FDR', fontsize=16)
+plt.ylabel('True FDR', fontsize=16)
+plt.text(0.3, 0.1, '$R^2$ = 0.98', fontsize=16)
+
+y_pred, reg, R2 = JV_utils.lin_reg(pred_FDR, FDRs)
+
+x = [0, 1]
+y1 = reg.coef_*0 + reg.intercept_
+y2 = reg.coef_*1 + reg.intercept_
+y = [y1.item(), y2.item()]
+plt.plot(x, y, c='k', lw=2)
+plt.xticks(fontsize=14)
+plt.yticks(fontsize=14)
+
+ax.set_xlim(-0.025, 1.025)
+ax.set_ylim(-0.025, 1.025)
+plt.tight_layout()
+
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+
+        
+
+# %% load in and preprocess PSTHs
+
+mat_contents = sio.loadmat('hidehiko_PSTHs')
+PSTHs = mat_contents['PSTHs']
+
+t = np.linspace(0, 6, 120)
+t_new = np.linspace(0, 6, 1000)
+
+PSTHs_new = []
+for i in range(len(PSTHs)):
+    smoothed = gaussian_filter1d(PSTHs[i], 3)
+    f = interpolate.interp1d(t, smoothed, kind='cubic')
+    y_new = f(t_new)
+    PSTHs_new.append(y_new)
+    
+PSTHs = np.vstack(PSTHs_new)
+
 # index 512 gets kind of buggy when you try to scale it
 PSTHs = np.delete(PSTHs, 512, 0)
 
@@ -132,23 +391,21 @@ for m, loc in enumerate(locs):
                                         neurons=N_con[i], N=100)
             Fvs.append(Fv)
             
-            PSTHs_run.append(Rtot)
-        
             
-        PSTHs_run = np.stack(PSTHs_run)
-        pred_FDR = JV_utils.pred_FDR(PSTHs_run, Fvs)
+            single_pred = JV_utils.FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i])
+            
+            if np.isnan(single_pred):
+                single_pred = N_con[i]/(N_con[i] + 1)
+                if N_con[i] == float('inf'):
+                    single_pred = 1
+            
+            pred_FDR.append(single_pred)
+        
         pred_FDR = np.array(pred_FDR)
         pred_FDR_old = pred_FDR
         
-        FDR_avg_old[m,j] = np.mean(pred_FDR)
         FDR_median[m,j] = np.median(pred_FDR)
         FDR_true_median[m,j] = np.median(FDR_dist)
-        
-        nan_mask = (pred_FDR == 0.75)
-        len_mask = sum(nan_mask)
-        pred_FDR = np.delete(pred_FDR, nan_mask)
-        for _ in range(len_mask): 
-            pred_FDR = np.delete(pred_FDR, pred_FDR.argmin())
         
         FDR_avg[m,j] = np.mean(pred_FDR)
         FDR_dist_true[m,j] = np.mean(FDR_dist)
@@ -160,10 +417,7 @@ JV_utils.save_sim(sim, 'PopMetSim')
 
 # %% load old sim data
 
-data = JV_utils.load_sim('PopMetSim_06-19-2023')
-    
-        
-# %% plotting median population correspondence
+data = JV_utils.load_sim('PopMetSim_07-17-2023')
 
 fig, ax = plt.subplots()
 plt.scatter(data.FDR_true_median, data.FDR_median, color='b', s=20)
@@ -172,9 +426,9 @@ plt.scatter(data.FDR_true_median, data.FDR_median, color='b', s=20)
 y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_true_median, data.FDR_median)
 
 
-x = [0, 0.5]
+x = [0, 0.4]
 y1 = reg.coef_*0 + reg.intercept_
-y2 = reg.coef_*0.5 + reg.intercept_
+y2 = reg.coef_*0.4 + reg.intercept_
 y = [y1.item(), y2.item()]
 plt.plot(x, y, c='k', lw=2)
 
@@ -190,6 +444,11 @@ plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.tight_layout()
 
+ax.set_aspect('equal')
+
+ax.set_xlim(-0.025, 0.425)
+ax.set_ylim(-0.025, 0.425)
+
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
 
@@ -199,14 +458,16 @@ plt.annotate('R^2 = 0.85', (0.2, 0.05), fontsize=20)
 
 # %% plotting mean population correspondence 
 
-plt.scatter(data.FDR_dist_true, data.FDR_avg_old, color='b', s=20)
 
-y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_dist_true, data.FDR_avg_old)
+fig, ax = plt.subplots()
+plt.scatter(data.FDR_dist_true, data.FDR_avg, color='b', s=20)
+
+y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_dist_true, data.FDR_avg)
 
 
-x = [0, 0.5]
+x = [0, 0.4]
 y1 = reg.coef_*0 + reg.intercept_
-y2 = reg.coef_*0.5 + reg.intercept_
+y2 = reg.coef_*0.4 + reg.intercept_
 y = [y1.item(), y2.item()]
 plt.plot(x, y, c='k', lw=2)
 
@@ -218,14 +479,21 @@ plt.ylabel('Predicted Mean FDR')
 
 # plt.title('MEAN', fontsize=18)
 
+
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.tight_layout()
 
+
+ax.set_aspect('equal')
+
+ax.set_xlim(-0.025, 0.425)
+ax.set_ylim(-0.025, 0.425)
+
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
 
-r2_score(data.FDR_dist_true, data.FDR_avg_old)
+r2_score(data.FDR_dist_true, data.FDR_avg)
 plt.annotate('R^2 = 0.87', (0.2, 0.05), fontsize=20)
 
 # %% recording time required to get coefficient of variation 

@@ -23,7 +23,34 @@ from matplotlib.patches import PathPatch
 from scipy import interpolate
 from scipy.ndimage import gaussian_filter1d
 
+import JV_utils
 import neuronsim
+
+# %%
+class HomoHeteroSim():
+    
+    def __init__(self, Rin, pred_FDR, Rin_out_dot, Rtot_out_dot, Fvs, R_out_mags,
+                 R_out_units, pred_FDR_true):
+       
+        self.Rin = Rin
+        self.pred_FDR = pred_FDR
+        self.Rin_out_dot = Rin_out_dot
+        self.Rtot_out_dot = Rtot_out_dot
+        self.Fvs = Fvs
+        self.R_out_mags = R_out_mags
+        self.R_out_units = R_out_units
+        self.pred_FDR_true = pred_FDR_true
+        
+# %%
+class fullSim():
+    
+    def __init__(self, pred_FDR, covs, FDRs, Rtots, N_con):
+       
+        self.pred_FDR = pred_FDR
+        self.covs = covs
+        self.FDRs = FDRs
+        self.Rtots = Rtots
+        self.N_con = N_con
 
 # %% homogeneous firing sim vs analytic prediction, panel A, simulation
 
@@ -430,10 +457,24 @@ for second_idx in other_idx:
     
     pred_FDR_true.append(FDR_master(Fv, Rtot, Rout/vector_mag(Rout), 1))
     
+
+sim = HomoHeteroSim(Rin, pred_FDR, Rin_out_dot, Rtot_out_dot, Fvs, R_out_mags, 
+                    R_out_units, pred_FDR_true)
+    
+JV_utils.save_sim(sim, 'HomovsHetero')
+    
     
 # %% plotting
 
-import JV_utils
+sim = JV_utils.load_sim('HomovsHetero_07-07-2023_2')
+Rin = sim.Rin
+pred_FDR = sim.pred_FDR
+Rin_out_dot = sim.Rin_out_dot
+Rtot_out_dot = sim.Rtot_out_dot
+Fvs = sim.Fvs
+R_out_mags = sim.R_out_mags
+R_out_units = sim.R_out_units
+pred_FDR_true = sim.pred_FDR_true
 
 pred_FDR_true = np.array(pred_FDR_true)
 
@@ -444,15 +485,19 @@ for i in range(len(R_out_mags)):
     
     Rout.append(R_out_mags[i]*R_out_units[i])
 
+covs = []    
+for i in range(len(Rout)):
+    covs.append(np.cov(Rin, Rout[i])[0,1])
+
 center = np.average(Rin)*np.average(Rout[0])
-plt.scatter((np.array(Rin_out_dot)/1000 - center)/center, pred_FDR, s=20, c='g')
+plt.scatter(covs, pred_FDR, s=20, c='g')
 
 x = np.array(Rin_out_dot)[np.invert(np.isnan(pred_FDR))]
 y = np.array(pred_FDR)[np.invert(np.isnan(pred_FDR))]
 
 y_pred, reg, R2 = JV_utils.lin_reg(x, y)
 temp = (x/1000 - center)/center
-xs = (x/1000 - center)/center
+xs = covs
 ys = y_pred
 ys = JV_utils.sort_list_by_list(xs, ys)
 xs = sorted(xs)
@@ -465,7 +510,7 @@ ax.axhline(0.2, c='k', ls='--', alpha=0.3)
 plt.ylabel('Predicted FDR', fontsize=16)
 plt.xlabel(r'$\overline{R_{in}R_{out}}$ (ẟ)', 
            fontsize=16)
-plt.scatter((x/1000 - center)/center, pred_FDR_true[~np.isnan(pred_FDR)], 
+plt.scatter(covs, pred_FDR_true[~np.isnan(pred_FDR)], 
             s=10, marker='x', zorder=0, c='b')
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
@@ -493,16 +538,39 @@ print(closest_value(overlap_factor, 0))
 
 # idxs to use: 70, 9, 17
 idx1 = 693
-idx2 = 70
+idx2 = 17
 
 fig, ax = plt.subplots()
 plt.plot(PSTHs[idx1]/vector_mag(PSTHs[idx1]))
 plt.plot(PSTHs[idx2]/vector_mag(PSTHs[idx2]))
 
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+plt.tight_layout()
+
+# %% load in and preprocess PSTHs
+
+mat_contents = sio.loadmat('hidehiko_PSTHs')
+PSTHs = mat_contents['PSTHs']
+
+t = np.linspace(0, 6, 120)
+t_new = np.linspace(0, 6, 1000)
+
+PSTHs_new = []
+for i in range(len(PSTHs)):
+    smoothed = gaussian_filter1d(PSTHs[i], 3)
+    f = interpolate.interp1d(t, smoothed, kind='cubic')
+    y_new = f(t_new)
+    PSTHs_new.append(y_new)
+    
+PSTHs = np.vstack(PSTHs_new)
+
 # %% predicted vs true across a range of conditions, panel D, simulation
 
 from random import choices, sample, uniform
 from scipy.optimize import minimize_scalar
+
+from JV_utils import FDR_master
 
 def Rout_scale_ob(scale, args):
     Rout_old, Rout_avg_new = args
@@ -510,12 +578,12 @@ def Rout_scale_ob(scale, args):
 
 k = 100
 
-N_con = [1, 2, 5, 10]
+N_con = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 N_con = np.array(choices(N_con, k=k), dtype='float')
 N_con[N_con == 10] = float('inf')
 
-Rtots = [4, 8, 12, 20]
-Rtots = choices(Rtots, k=k)
+Rtots = [4, 20]
+Rtots = np.random.uniform(Rtots[0], Rtots[1], size=k)
 
 FDRs = []
 for _ in range(k):
@@ -527,7 +595,9 @@ for _ in range(k):
     idx_pairs.append(sample(PSTH_idx, 2))
 
 pred_FDR = []  
-OF = []
+
+covs = []    
+    
 for i in range(k):
     
     Rin = PSTHs[idx_pairs[i][0]]
@@ -551,15 +621,28 @@ for i in range(k):
     Rtot = Rin + Rout
     
     center = np.average(Rin)*np.average(Rout[0])
-    OF.append((np.dot(Rin, Rout)/1000 - center)/center)
+    covs.append(np.cov(Rin, Rout)[0,1])
     
     Fv = neuronsim.sim_Fv_PSTH4(Rin, Rout, out_refrac=2.5, 
-                                neurons=N_con[i], N=10000)
+                                neurons=N_con[i], N=7200)
     
     
-    pred_FDR.append(FDR_master(Fv, Rtot, Rout/vector_mag(Rout), N_con[i]))
+    pred_FDR.append(FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i]))
+    
+sim = fullSim(pred_FDR, covs, FDRs, Rtots, N_con)
+JV_utils.save_sim(sim, 'fullSim')
+
     
 # %% plotting
+
+import matplotlib as mpl
+
+sim = JV_utils.load_sim('fullSim_07-12-2023_2')
+pred_FDR = sim.pred_FDR
+covs = sim.covs
+FDRs = sim.FDRs
+Rtots = sim.Rtots
+N_con = sim.N_con
 
 pred_FDR = np.array(pred_FDR)
 FDRs = np.array(FDRs)
@@ -581,6 +664,9 @@ y = [y1.item(), y2.item()]
 plt.plot(x, y, c='k', lw=2)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
+
+ax.set_xlim(-0.025, 0.55)
+ax.set_ylim(-0.025, 0.55)
 plt.tight_layout()
 
 mpl.rcParams['image.composite_image'] = False
