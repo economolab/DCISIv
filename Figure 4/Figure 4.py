@@ -139,7 +139,8 @@ def fit_plot_pdf(Fvs, ax, c):
     # plt.hist(Fvs, color=c)
     plt.fill_between(points,pdf, color=c, alpha=0.5)
     
-    
+
+
 fig, ax = plt.subplots()
 
 fit_plot_pdf(Fvs_low, ax, 'r')
@@ -149,6 +150,20 @@ fit_plot_pdf(Fvs_high, ax, 'b')
 ax.set_ylim(0)
 
 ax.vlines(0.005, 0, 1000)
+
+def make_square_axes(ax):
+    """Make an axes square in screen units.
+
+    Should be called after plotting.
+    """
+    ax.set_aspect(1 / ax.get_data_ratio())
+
+
+make_square_axes(ax)
+
+# ax.set_aspect('equal')
+# ax.set_xlim(-0.025, 1.025)
+# ax.set_ylim(-0.025, 1.025)
 
 plt.tight_layout()
 
@@ -270,17 +285,16 @@ N_con = sim.N_con
 pred_FDR = np.array(pred_FDR)
 FDRs = np.array(FDRs)
 
-pred_FDR[np.isnan(pred_FDR)] = 0.75
 
 idxs = np.array(N_con) == 1
 fig, ax = plt.subplots()
-plt.scatter(pred_FDR, FDRs, c='blue', s=24)
+plt.scatter(FDRs, pred_FDR, c='blue', s=24)
 plt.plot([0, 1], [0, 1], ls='dashed', c='k', lw=2)
-plt.xlabel('Predicted FDR', fontsize=16)
-plt.ylabel('True FDR', fontsize=16)
+plt.xlabel('True FDR', fontsize=16)
+plt.ylabel('Predicted FDR', fontsize=16)
 plt.text(0.3, 0.1, '$R^2$ = 0.98', fontsize=16)
 
-y_pred, reg, R2 = JV_utils.lin_reg(pred_FDR, FDRs)
+y_pred, reg, R2 = JV_utils.lin_reg(FDRs, pred_FDR)
 
 x = [0, 1]
 y1 = reg.coef_*0 + reg.intercept_
@@ -290,6 +304,7 @@ plt.plot(x, y, c='k', lw=2)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 
+ax.set_aspect('equal')
 ax.set_xlim(-0.025, 1.025)
 ax.set_ylim(-0.025, 1.025)
 plt.tight_layout()
@@ -498,63 +513,66 @@ plt.annotate('R^2 = 0.87', (0.2, 0.05), fontsize=20)
 
 # %% recording time required to get coefficient of variation 
 
-new_save_file = 0
-
-save_file_name = 'RecTimeSim_06-19-2023' # if using an already made save file
-
-if new_save_file == 0:
-    data = JV_utils.load_sim(save_file_name)
-
-def CV_ob(t_rec, args):
+n = 9
+for _ in range(n):
+    new_save_file = 0
     
-    Rtot, true_FDR, num_iters = args
+    save_file_name = 'RecTimeSim_07-21-2023' # if using an already made save file
     
-    FDRs = []
+    if new_save_file == 0:
+        data = JV_utils.load_sim(save_file_name)
     
-    Rout = Rtot*true_FDR
-    Rin = Rtot - Rout
-    
-    Rtot_vec = np.array([Rin + Rout]*100)
-    Rout_unit = [Rout]*100
-    Rout_unit = np.array(Rout_unit)/np.linalg.norm(Rout_unit)
-    
-    for _ in range(num_iters):
+    def CV_ob(t_rec, args):
         
-        Fv = neuronsim.sim_Fv(Rin, Rout, t_stop=t_rec, N=1)[0]
         
-        FDRs.append(JV_utils.FDR_master(Fv, Rtot_vec, Rout_unit, float('inf')))
+        Rtot, true_FDR, num_iters = args
         
-    FDRs = np.array(FDRs)
-    FDRs[np.isnan(FDRs)] = 1
+        FDRs = []
+        
+        Rout = Rtot*true_FDR
+        Rin = Rtot - Rout
+        
+        Rtot_vec = np.array([Rin + Rout]*100)
+        Rout_unit = [Rout]*100
+        Rout_unit = np.array(Rout_unit)/np.linalg.norm(Rout_unit)
+        
+        for _ in range(num_iters):
+            
+            Fv = neuronsim.sim_Fv(Rin, Rout, t_stop=t_rec, N=1)[0]
+            
+            FDRs.append(JV_utils.FDR_master(Fv, Rtot_vec, Rout_unit, float('inf')))
+            
+        FDRs = np.array(FDRs)
+        FDRs[np.isnan(FDRs)] = 1
+        
+        FDR_std = np.std(FDRs)
+        CV = FDR_std/true_FDR
+            
+        return abs(CV - 0.2)
     
-    FDR_std = np.std(FDRs)
-    CV = FDR_std/true_FDR
-        
-    return abs(CV - 0.2)
-
-true_FDRs = [0.05, 0.3, 0.5]
-num_iters = 100
-Rtots = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-
-# rows are different FDRs, columns are different Rtots
-t_recs = np.zeros((len(true_FDRs), len(Rtots)))
-
-for i, true_FDR in enumerate(true_FDRs):
-    for j, Rtot in enumerate(Rtots):
-
-        t_recs[i,j] = minimize_scalar(CV_ob, 
-                                      args=[Rtot, true_FDR, num_iters], 
-                                      method='bounded', 
-                                      tol=10,
-                                      bounds=[1, 600*60]).x
-        
-if new_save_file == 1:
-    JV_utils.save_sim(RecTimeSim([t_recs], true_FDRs, Rtots), 'RecTimeSim')
-
-if new_save_file == 0:
-    data.t_recs.append(t_recs)
-    JV_utils.save_sim(RecTimeSim(data.t_recs, true_FDRs, Rtots), save_file_name, writeover=True)
+    true_FDRs = [0.05, 0.1, 0.3]
+    num_iters = 1000
+    Rtots = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    
+    
+    # rows are different FDRs, columns are different Rtots
+    t_recs = np.zeros((len(true_FDRs), len(Rtots)))
+    
+    for i, true_FDR in enumerate(true_FDRs):
+        for j, Rtot in enumerate(Rtots):
+    
+            t_recs[i,j] = minimize_scalar(CV_ob, 
+                                          args=[Rtot, true_FDR, num_iters], 
+                                          method='bounded', 
+                                          tol=10,
+                                          bounds=[1, 600*200]).x
+            
+    if new_save_file == 1:
+        JV_utils.save_sim(RecTimeSim([t_recs], true_FDRs, Rtots), 'RecTimeSim')
+    
+    if new_save_file == 0:
+        data.t_recs.append(t_recs)
+        JV_utils.save_sim(RecTimeSim(data.t_recs, true_FDRs, Rtots), save_file_name, writeover=True)
     
 
     
@@ -565,6 +583,79 @@ data = JV_utils.load_sim(save_file_name)
 t_recs = data.t_recs
 
 t_05 = np.vstack([arr[0,:] for arr in t_recs])
-t_20 = np.vstack([arr[1,:] for arr in t_recs])
-t_50 = np.vstack([arr[2,:] for arr in t_recs])
+t_10 = np.vstack([arr[1,:] for arr in t_recs])
+t_30 = np.vstack([arr[2,:] for arr in t_recs])
+
+t_05_means = np.mean(t_05, axis=0)
+t_10_means = np.mean(t_10, axis=0)
+t_30_means = np.mean(t_30, axis=0)
+
+def smooth_line(x, y):
+    
+    t = x
+    t_new = np.linspace(1, 10, 1000)
+
+    smoothed = gaussian_filter1d(y, 0.5)
+    f = interpolate.interp1d(t, smoothed, kind='cubic')
+    return f(t_new)
+    
+Rtots = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+t_new = np.linspace(1, 10, 1000)
+
+# t_05_means = smooth_line(Rtots, t_05_means)
+# t_10_means = smooth_line(Rtots, t_10_means)
+# t_30_means = smooth_line(Rtots, t_30_means)
+
+t_05_stds = np.std(t_05, axis=0)
+t_10_stds = np.std(t_10, axis=0)
+t_30_stds = np.std(t_30, axis=0)
+
+# t_05_stds = smooth_line(Rtots, t_05_stds)
+# t_10_stds = smooth_line(Rtots, t_10_stds)
+# t_30_stds = smooth_line(Rtots, t_30_stds)
+
+t_05_means = t_05_means/60
+t_10_means = t_10_means/60
+t_30_means = t_30_means/60
+t_05_stds = t_05_stds/60
+t_10_stds = t_10_stds/60
+t_30_stds = t_30_stds/60
+
+fig, ax = plt.subplots()
+ax.plot(Rtots, t_05_means, c='b')
+ax.plot(Rtots, t_10_means, c ='g')
+ax.plot(Rtots, t_30_means, c='r')
+
+plt.fill_between(Rtots, t_05_means-t_05_stds*2, 
+                  t_05_means+t_05_stds*2, color='b', alpha=0.1)
+plt.fill_between(Rtots, t_10_means-t_10_stds*2, 
+                  t_10_means+t_10_stds*2, color='g', alpha=0.1)
+plt.fill_between(Rtots, t_30_means-t_30_stds*2, 
+                  t_30_means+t_30_stds*2, color='r', alpha=0.1)
+
+t_05_means = np.mean(t_05, axis=0)/60
+plt.scatter(Rtots, t_05_means, c='b', s=10)
+
+t_10_means = np.mean(t_10, axis=0)/60
+plt.scatter(Rtots, t_10_means, c='g', s=10)
+
+t_30_means = np.mean(t_30, axis=0)/60
+plt.scatter(Rtots, t_30_means, c='r', s=10)
+
+plt.xticks(fontsize=14)
+plt.yticks(fontsize=14)
+
+plt.yscale('log')
+
+plt.grid(axis='both', which='both', ls ='--', alpha=0.3, lw=1)
+plt.ylabel('Recording Time (min)')
+plt.xlabel('R (Hz)')
+plt.xticks([1, 2, 3, 4,5, 6, 7,8,9, 10])
+ax.set_aspect(1.4)
+
+plt.tight_layout()
+
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+
 
