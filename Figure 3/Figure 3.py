@@ -111,9 +111,9 @@ cm_subsection = np.linspace(start, stop, number_of_lines)
 
 colors = [ cm.copper(x) for x in cm_subsection ]
 
-colors = ['blue', 'green', 'red']
-colors_scat = ['darkblue', 'darkgreen', 'darkred']
-cmaps = ['Blues', 'Greens', 'Reds']
+colors = ['purple', 'green', 'orange']
+colors_scat = ['darkmagenta', 'darkgreen', 'darkorange']
+cmaps = ['Purples', 'Greens', 'Oranges']
 
 for idx in range(0, 3):
 
@@ -637,7 +637,7 @@ JV_utils.save_sim(sim, 'fullSim')
 
 import matplotlib as mpl
 
-sim = JV_utils.load_sim('fullSim_07-12-2023_2')
+sim = JV_utils.load_sim('fullSim_07-12-2023_5')
 pred_FDR = sim.pred_FDR
 covs = sim.covs
 FDRs = sim.FDRs
@@ -649,13 +649,13 @@ FDRs = np.array(FDRs)
 
 idxs = np.array(N_con) == 1
 fig, ax = plt.subplots()
-plt.scatter(pred_FDR, FDRs, c='blue', s=24)
+plt.scatter(FDRs, pred_FDR, c='blue', s=24)
 plt.plot([0, 0.5], [0, 0.5], ls='dashed', c='k', lw=2)
-plt.xlabel('Predicted FDR', fontsize=16)
-plt.ylabel('True FDR', fontsize=16)
+plt.xlabel('True FDR', fontsize=16)
+plt.ylabel('Predicted FDR', fontsize=16)
 plt.text(0.3, 0.1, '$R^2$ = 0.98', fontsize=16)
 
-y_pred, reg, R2 = JV_utils.lin_reg(pred_FDR, FDRs)
+y_pred, reg, R2 = JV_utils.lin_reg(FDRs, pred_FDR)
 
 x = [0, 0.5]
 y1 = reg.coef_*0 + reg.intercept_
@@ -664,9 +664,14 @@ y = [y1.item(), y2.item()]
 plt.plot(x, y, c='k', lw=2)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
+plt.tight_layout()
 
-ax.set_xlim(-0.025, 0.55)
-ax.set_ylim(-0.025, 0.55)
+
+ax.set_aspect('equal')
+
+ax.set_xlim(-0.025, 0.525)
+ax.set_ylim(-0.025, 0.525)
+
 plt.tight_layout()
 
 mpl.rcParams['image.composite_image'] = False

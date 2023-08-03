@@ -17,7 +17,7 @@ FDR_avg = []
 PSTHs = []
 ISI_viol = []
 
-path = r'C:\\Users\\jpv88\\OneDrive\\Documents\\GitHub\\Economo\\spike sorting\\Real Data FDR Predictions\\Steinmetz et al\\'
+path = r'C:\\Users\\jpv88\\Documents\\GitHub\\SpikeSim\\Table 1\\Steinmetz et al\\'
 
 PSTHs_temp = np.load(path + 'steinmetz_PSTHs.npy')
 ISI_viol_temp = np.load(path + 'steinmetz_ISI_viol.npy')

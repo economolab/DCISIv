@@ -12,7 +12,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-data_dir = r'D:\\FDR Predictions DATA\\Steinmetz et al\\spikeAndBehavioralData\\allData'
+data_dir = r'E:\\FDR Predictions DATA\\Steinmetz et al\\spikeAndBehavioralData\\allData'
 
 exps = [x[0] for x in os.walk(data_dir)]
 exps.pop(0)
@@ -27,6 +27,7 @@ phy_annotation_str = 'clusters._phy_annotation.npy'
 T = 4
 PSTHs_full = []
 ISI_viol_full = []
+ISIs = []
 
 for k in range(len(exps)):
     
@@ -64,6 +65,7 @@ for k in range(len(exps)):
         for trial in trials:
             n_spikes += len(trial)
             viols += sum(np.diff(trial) < 0.0025)
+            ISIs.append(np.diff(trial))
         
         ISI_viol[i] = viols/n_spikes if n_spikes != 0 else 0
             

@@ -16,9 +16,9 @@ from os.path import isfile, join
 
 # %%
 
-mypath = r"D:\\FDR Predictions DATA\\Inagaki et al 2022"
+mypath = r"E:\\FDR Predictions DATA\\Inagaki et al 2022"
 onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-mypath = r"D:\\FDR Predictions DATA\\Inagaki et al 2022\\"
+mypath = r"E:\\FDR Predictions DATA\\Inagaki et al 2022\\"
 
 PSTHs = []
 ISI_viol = []
@@ -78,7 +78,7 @@ for file in tqdm(onlyfiles):
     for j, unit in enumerate(units):
         PSTHs_temp.append(JV_utils.gen_PSTH(unit, n_trials[j], T, bin_size))
         
-    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp)
+    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp, tau_c=0.25)
     
     FDRs.extend(pred)
     PSTHs.extend(PSTHs_temp)

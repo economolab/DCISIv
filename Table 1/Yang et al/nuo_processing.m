@@ -1,6 +1,6 @@
 %%
 
-path = 'D:\FDR Predictions DATA\Yang et al\';
+path = 'E:\FDR Predictions DATA\Yang et al\';
 load(strcat(path, 'Data_CompileData1_YangEtAl22.mat'))
 
 %% Concatenate across trial types, make all trials same length
@@ -57,6 +57,7 @@ end
 
 tau = 0.0025;
 ISI_viol = zeros(N,1);
+ISI_viol_test = [];
 
 for i=1:N
 
@@ -68,6 +69,7 @@ for i=1:N
         current_trial = all_trials{i}{j};
         num_spikes = num_spikes + length(current_trial);
         num_viols = num_viols + sum(diff(current_trial) < tau);
+        ISI_viol_test = [ISI_viol_test; diff(current_trial)];
     end
 
     ISI_viol(i) = num_viols/num_spikes;

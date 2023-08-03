@@ -1,4 +1,4 @@
-myFolder = 'D:\FDR Predictions DATA\Economo et al\Ephys\Code\ProcessedData\';
+myFolder = 'C:\Users\jpv88\Documents\FDR Predictions DATA\Economo et al\ProcessedData\';
 filePattern = fullfile(myFolder, '*.mat');
 theFiles = dir(filePattern);
 names = {theFiles.name};

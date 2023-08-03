@@ -1,7 +1,6 @@
-
-
+ISIs = [];
 %% asdf
-myFolder = 'D:\FDR Predictions DATA\Inagaki et al 2019\SiliconProbeData\SiliconProbeData\FixedDelayTask\';
+myFolder = 'C:\Users\jpv88\Documents\FDR Predictions DATA\Inagaki et al 2019\SiliconProbeData\FixedDelayTask\';
 filePattern = fullfile(myFolder, '*.mat');
 theFiles = dir(filePattern);
 names = {theFiles.name};
@@ -47,6 +46,7 @@ for i=1:length(spikes_full)
     for j=ranges_full(i,1):ranges_full(i,2)
         trial_spikes = spikes(trials == j);
         viols = viols + sum(diff(trial_spikes) < tau);
+        ISIs = [ISIs; diff(trial_spikes)];
         num_spikes = num_spikes + length(trial_spikes);
     end
     ISI_viol(i) = viols/num_spikes;

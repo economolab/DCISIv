@@ -17,7 +17,7 @@ FDR_avg = []
 PSTHs = []
 ISI_viol = []
 
-path = r'C:\\Users\\jpv88\\OneDrive\\Documents\\GitHub\\Economo\\spike sorting\\Real Data FDR Predictions\\Yang et al\\'
+path = r'C:\\Users\\jpv88\\Documents\\GitHub\\SpikeSim\\Table 1\\Yang et al\\'
 
     
 mat_contents = sio.loadmat(path + 'Yang_PSTHs.mat')
@@ -26,7 +26,7 @@ mat_contents = sio.loadmat(path + 'Yang_ISIviol.mat')
 ISI_viol_temp = mat_contents['ISI_viol']
 
 
-pred = JV_utils.pred_FDR(PSTHs_temp, ISI_viol_temp)
+pred = JV_utils.pred_FDR(PSTHs_temp, ISI_viol_temp, tau_c=0.85)
     
 FDRs.extend(pred)
 PSTHs.extend(PSTHs_temp)

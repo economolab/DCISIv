@@ -16,9 +16,9 @@ from os.path import isfile, join
 
 # %%
 
-mypath = r"D:\\FDR Predictions DATA\\Xu et al"
+mypath = r"E:\\FDR Predictions DATA\\Xu et al"
 onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-mypath = r"D:\FDR Predictions DATA\Xu et al\\"
+mypath = r"E:\\FDR Predictions DATA\\Xu et al\\"
 
 PSTHs = []
 ISI_viol = []
@@ -92,6 +92,64 @@ for file in tqdm(onlyfiles):
     PSTHs_temp = []
     for j, unit in enumerate(aligned_units):
         PSTHs_temp.append(JV_utils.gen_PSTH(unit, n_trials[j], T, bin_size))
+        
+    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp)
+    
+    FDRs.extend(pred)
+    PSTHs.extend(PSTHs_temp)
+    ISI_viol.extend(ISI_viol_temp)
+    FDR_avg.append(np.mean(pred))
+    
+# %% alt version
+
+mypath = r"E:\\FDR Predictions DATA\\Xu et al"
+onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+mypath = r"E:\\FDR Predictions DATA\\Xu et al\\"
+
+PSTHs = []
+ISI_viol = []
+FDRs = []
+FDR_avg = []
+
+for file in tqdm(onlyfiles):
+
+    nwb_read = NWBHDF5IO(mypath + file, "r").read()
+    
+    if nwb_read.units is None:
+        continue
+    
+    if nwb_read.units.spike_times is None:
+        continue
+    
+    spike_times = nwb_read.units.spike_times.data[:]
+    spike_times_index = nwb_read.units.spike_times_index.data[:]
+    cue_times = nwb_read.trials['cue_times'].data[:]
+    
+    n_units = len(spike_times_index)
+    spike_times_index = np.insert(spike_times_index, 0, 0)
+    
+    units = []
+    
+    for idx in range(n_units):
+        idx1 = spike_times_index[idx]
+        idx2 = spike_times_index[idx+1]
+        
+        units.append(spike_times[idx1:idx2])
+        
+    maxs = []
+    for unit in units:
+        maxs.append(np.max(unit))
+    
+    t_end = np.ceil(np.max(maxs))         
+    # length of time after go cue to use for PSTH
+    T = 4
+    
+    bin_size = 100
+    PSTHs_temp = []
+    ISI_viol_temp = []
+    for unit in units:
+        PSTHs_temp.append(JV_utils.gen_PSTH(unit, 1, t_end, bin_size))
+        ISI_viol_temp.append(sum(np.diff(unit)<0.0025)/len(unit))
         
     pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp)
     

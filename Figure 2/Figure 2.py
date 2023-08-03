@@ -28,7 +28,7 @@ import neuronsim
 
 # %%
 
-resimFR = 1
+resimFR = 0
 resimOverlap = 0
 resimNcon = 0
 
@@ -230,15 +230,15 @@ if resimOverlap == 1:
 
 fig, ax = plt.subplots()
 plt.plot(true1*true_scale)
-plt.plot(rogue1*rogue_scale)
+plt.plot(rogue1*150)
 
 fig, ax = plt.subplots()
 plt.plot(true1*true_scale)
-plt.plot(rogue2*rogue_scale)
+plt.plot(rogue2*150)
 
 fig, ax = plt.subplots()
 plt.plot(true1*true_scale)
-plt.plot(rogue3*rogue_scale)
+plt.plot(rogue3*150)
 
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
