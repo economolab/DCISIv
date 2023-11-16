@@ -226,6 +226,10 @@ while done == 0:
     
     covs = []    
         
+    # store the simulated PSTHs
+    Rtots_matrix = np.zeros((k, np.shape(PSTHs)[1]))
+    Fvs = []
+    
     for i in range(k):
         
         Rin = PSTHs[idx_pairs[i][0]]
@@ -248,12 +252,15 @@ while done == 0:
         
         Rtot = Rin + Rout
         
+        Rtots_matrix[i,:] = Rtot
+        
         center = np.average(Rin)*np.average(Rout[0])
         covs.append(np.cov(Rin, Rout)[0,1])
         
         Fv = neuronsim.sim_Fv_PSTH4(Rin, Rout, out_refrac=2.5, 
                                     neurons=N_con[i], N=100)
         
+        Fvs.append(Fv)
         
         single_pred = FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i])
         

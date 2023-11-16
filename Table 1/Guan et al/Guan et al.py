@@ -14,11 +14,11 @@ import numpy as np
 from os import listdir
 from os.path import isfile, join
 
-# %%
+# %% censor period = 1.5
 
-mypath = r"D:\\FDR Predictions DATA\\Guan et al\\000147"
+mypath = r"E:\\FDR Predictions DATA\\Guan et al\\000147"
 onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
-mypath = r"D:\\FDR Predictions DATA\\Guan et al\\000147\\"
+mypath = r"E:\\FDR Predictions DATA\\Guan et al\\000147\\"
 
 PSTHs = []
 ISI_viol = []
@@ -51,7 +51,7 @@ for file in tqdm(onlyfiles):
         units.append(spike_times[idx1:idx2])
         
     # length of time after to use for PSTH centered on each go cue
-    T = 5
+    T = 3
     
     ISI_viol_temp = []
     aligned_units = []
@@ -96,7 +96,7 @@ for file in tqdm(onlyfiles):
     for j, unit in enumerate(aligned_units):
         PSTHs_temp.append(JV_utils.gen_PSTH(unit, n_trials[j], T, bin_size))
         
-    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp)
+    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp, tau_c=1.5)
     
     FDRs.extend(pred)
     PSTHs.extend(PSTHs_temp)

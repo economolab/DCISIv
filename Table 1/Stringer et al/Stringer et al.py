@@ -17,7 +17,7 @@ FDR_avg = []
 PSTHs = []
 ISI_viol = []
 
-path = r'C:\\Users\\jpv88\\OneDrive\\Documents\\GitHub\\Economo\\spike sorting\\Real Data FDR Predictions\\Stringer et al\\'
+path = r'E:\\FDR Predictions DATA\\Stringer et al\\'
 
 
 files = ['Krebs', 'Robbins', 'Waksman']
@@ -41,7 +41,42 @@ for file in tqdm(files):
         PSTHs.extend(PSTHs_temp)
         ISI_viol.extend(ISI_viol_temp)
         FDR_avg.append(np.mean(pred))
+        
+# %% homogeneous prediction, no censor period
+
+path = r'E:\\FDR Predictions DATA\\Stringer et al\\'
+files = ['FRs_homo.mat', 'ISI_viol.mat']
+
+mat_contents = sio.loadmat(path + files[0])
+FRs = mat_contents['FRs']
+
+mat_contents = sio.loadmat(path + files[1])
+ISI_viol = mat_contents['ISI_viol']
+
+
+FDRs_1 = []
+FDRs_inf = []
+for i, FR in enumerate(FRs):
     
+    PSTH = [FR] * 100
+    PSTH = np.array(PSTH)
+    PSTH = PSTH.flatten()
+    
+    Rout_unit = [1] * 100
+    Rout_unit = Rout_unit/np.linalg.norm(Rout_unit)
+    Rout_unit = np.array(Rout_unit)
+    
+    FDRs_1.append(JV_utils.FDR_master(ISI_viol[i], PSTH, Rout_unit, 1, tau=2.5, tau_c=0))
+    FDRs_inf.append(JV_utils.FDR_master(ISI_viol[i], PSTH, Rout_unit, float('inf'), tau=2.5, tau_c=0))
+    
+FDRs_1 = np.array(FDRs_1)
+FDRs_1[np.isnan(FDRs_1)] = 0.5
+FDRs_inf = np.array(FDRs_inf)
+FDRs_inf[np.isnan(FDRs_inf)] = 1
+
+FDRs = (FDRs_1 + FDRs_inf)/2
+
+
 # %%
 
 mean_FDR = np.mean(FDRs)

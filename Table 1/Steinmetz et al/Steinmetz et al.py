@@ -28,6 +28,8 @@ sessions = [1085, 1146, 1089, 2073, 1569, 1435, 1029, 1707, 1364, 1591, 1409, 12
             1041, 1793]
 
 idx = 0
+
+# seems to be no censor period
 for j, session in enumerate(sessions):
 
     pred = JV_utils.pred_FDR(PSTHs_temp[idx:idx+sessions[j],:], 
@@ -39,6 +41,40 @@ for j, session in enumerate(sessions):
     FDR_avg.append(np.mean(pred))
     
     idx += sessions[j]
+    
+# %% censor period = 0, newer version
+
+FDRs = []
+FDR_avg = []
+PSTHs = []
+ISI_viol = []
+
+sessions = [1085, 1146, 1089, 2073, 1569, 1435, 1029, 1707, 1364, 1591, 1409, 1219,
+            1262, 1228, 1134, 977, 727, 1350, 806, 1144, 795, 1109, 1455, 1426, 1266,
+            1161, 1251, 860, 1147, 1461, 1251, 778, 854, 928, 1425, 1409, 1907,
+            1041, 1793]
+
+path = r'C:\\Users\\jpv88\\Documents\\GitHub\\SpikeSim\\Table 1\\Steinmetz et al\\'
+
+    
+PSTHs_temp = np.load(path + 'PSTHs.npy')
+ISI_viol_temp = np.load(path + 'ISI_viol.npy')
+
+idx = 0
+
+# seems to be no censor period
+for j, session in enumerate(sessions):
+
+    pred = JV_utils.pred_FDR(PSTHs_temp[idx:idx+sessions[j],:], 
+                             ISI_viol_temp[idx:idx+sessions[j]], tau_c=0)
+        
+    FDRs.extend(pred)
+    PSTHs.extend(PSTHs_temp)
+    ISI_viol.extend(ISI_viol_temp)
+    FDR_avg.append(np.mean(pred))
+    
+    idx += sessions[j]
+
     
 # %% 
 

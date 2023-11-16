@@ -109,7 +109,7 @@ if resimFR == 1:
 
         ISIs_df = pd.DataFrame(columns=['ISIs', 'Fv', 'Rtot'])
         
-        Rtots = [20, 6.2, 4]
+        Rtots = [20, 5.3, 4]
         
         ISIv = 0.005
         
@@ -139,106 +139,136 @@ if resimFR == 1:
 
 # %% changing PSTH overlap
 
+
+mat_contents = sio.loadmat('hidehiko_PSTHs')
+PSTHs = mat_contents['PSTHs']
+
+t = np.linspace(0, 6, 120)
+t_new = np.linspace(0, 6, 1000)
+
+def preprocess(PSTH, sigma):
+    unit = PSTH/LA.norm(PSTH)
+    smoothed = gaussian_filter1d(unit, sigma)
+    f = interpolate.interp1d(t, smoothed, kind='cubic')
+    y_new = f(t_new)
+    return y_new
+
+
+true1 = PSTHs[687]
+rogue_base = true1 + np.random.normal(0, 1, [len(true1),])
+
+rogue1 = np.roll(rogue_base, 62)
+rogue2 = np.roll(rogue_base, 103)
+rogue3 = np.roll(rogue_base, 120)
+
+sigma = 5
+true1 = preprocess(true1, sigma)
+rogue1 = preprocess(rogue1, sigma)
+rogue2 = preprocess(rogue2, sigma)
+rogue3 = preprocess(rogue3, sigma)
+
+true1[true1<0] = 0
+rogue1[rogue1<0] = 0
+rogue2[rogue2<0] = 0
+rogue3[rogue3<0] = 0
+
+plt.plot(rogue1)
+plt.plot(true1)
+
+# %%
+
 if resimOverlap == 1:
-
-
-    mat_contents = sio.loadmat('hidehiko_PSTHs')
-    PSTHs = mat_contents['PSTHs']
-
-    t = np.linspace(0, 6, 120)
-    t_new = np.linspace(0, 6, 1000)
-
-    def preprocess(PSTH, sigma):
-        unit = PSTH/LA.norm(PSTH)
-        smoothed = gaussian_filter1d(unit, sigma)
-        f = interpolate.interp1d(t, smoothed, kind='cubic')
-        y_new = f(t_new)
-        return y_new
-
-
-    true1 = PSTHs[687]
-    rogue_base = true1 + np.random.normal(0, 1, [len(true1),])
     
-    rogue1 = np.roll(rogue_base, 42)
-    rogue2 = np.roll(rogue_base, 103)
-    rogue3 = np.roll(rogue_base, 120)
-    
-    sigma = 5
-    true1 = preprocess(true1, sigma)
-    rogue1 = preprocess(rogue1, sigma)
-    rogue2 = preprocess(rogue2, sigma)
-    rogue3 = preprocess(rogue3, sigma)
-    
-    true1[true1<0] = 0
-    rogue1[rogue1<0] = 0
-    rogue2[rogue2<0] = 0
-    rogue3[rogue3<0] = 0
     
     rogues = [rogue1, rogue2, rogue3]
-    true_scale = 200
-    rogue_scale = 53
+    true1_scale = 30
+    true2_scale = 35
+    true3_scale = 40
+    true_scales = [true1_scale, true2_scale, true3_scale]
+    rogue1_scale = 17
+    rogue2_scale = 12
+    rogue3_scale = 6
+    rogue_scales = [rogue1_scale, rogue2_scale, rogue3_scale]
     
-    Rin_int = integrate.simpson(true1*true_scale)
-    Rout_int = integrate.simpson(rogue1*rogue_scale)
+    FDRs = []
+    Rtots = []
     
-    FDR = Rout_int/(Rin_int + Rout_int)
-    ISI_viols = []
     for i in range(3):
-        Rviol = 2*0.0025*np.dot(true1*true_scale, rogues[i]*rogue_scale)/len(true1)
-        ISI_viols.append(Rviol/np.mean(np.array(true1*true_scale) + np.array(rogues[i]*rogue_scale)))
+        Rin_int = integrate.simpson(true1*true_scales[i])
+        Rout_int = integrate.simpson(rogues[i]*rogue_scales[i])
+        FDRs.append(Rout_int/(Rin_int + Rout_int))
+        Rin = np.mean(true1*true_scales[i])
+        Rout = np.mean(rogues[i]*rogue_scales[i])
+        Rtots.append(Rin+Rout)
+    
+
+    ISI_viols = []
+    covs = []
+    for i in range(3):
+        term2 = (1/2)*2*0.0025*np.dot(rogues[i]*rogue_scales[i], rogues[i]*rogue_scales[i])/len(rogues[i])
+        Rviol = 2*0.0025*np.dot(true1*true_scales[i], rogues[i]*rogue_scales[i])/len(true1) + term2
+        ISI_viols.append(Rviol/np.mean(np.array(true1*true_scales[i]) + np.array(rogues[i]*rogue_scales[i])))
+        covs.append(np.cov(true1*true_scales[i], rogues[i]*rogue_scales[i])[0,1])
+        
+    print(FDRs)
+    print(ISI_viols)
+    print(Rtots)
+    print(covs)
     
 # %%
 
-
-    done = 0
-    while done == 0:
-        
-        ISIs_df = pd.DataFrame(columns=['ISIs', 'Fv', 'Rtot'])
+done = 0
+while done == 0:
     
-        for i in range(3):
-            spks = neuronsim.sim_spikes_PSTH2(true1*true_scale, rogues[i]*rogue_scale, N=100, out_refrac=2.5)
-            
-            Fv = Fv_calc(spks)
-            Rtot = len(np.concatenate(spks))/(100*6)
-        
-            ISIs = []
-            for trial in spks:
-                ISIs.append(np.diff(trial))
-            ISIs = np.concatenate(ISIs)
-            ISIs = ISIs*1000
-            ISIs = np.concatenate((ISIs, ISIs*-1))
-        
-            ISIs_df.loc[len(ISIs_df.index)] = [ISIs, Fv, Rtot]
-            
-        # if every ISI violation fraction rounded to 3 decimals is the same
-        if np.round(ISIs_df['Fv'].values[0], decimals=3) == 0.005:
-            print('check1')
-            if np.round(ISIs_df['Fv'].values[1], decimals=3) == 0.010:
-                print('check2')
-                if np.round(ISIs_df['Fv'].values[2], decimals=3) == 0.025:
-                    print('check3')
-                    done = 1
-        
-    JV_utils.save_sim(ISIs_df, 'ChangeOverlap')
-    
-    fig, ax = plt.subplots(3,3)
+    ISIs_df = pd.DataFrame(columns=['ISIs', 'Fv', 'Rtot'])
 
     for i in range(3):
-        plot_ISIs(ISIs_df, i, ax, 0, i, 'blue')
+        spks = neuronsim.sim_spikes_PSTH2(true1*true_scales[i], rogues[i]*rogue_scales[i], N=300, out_refrac=0)
+        
+        Fv = Fv_calc(spks)
+        Rtot = len(np.concatenate(spks))/(100*6)
+    
+        ISIs = []
+        for trial in spks:
+            ISIs.append(np.diff(trial))
+        ISIs = np.concatenate(ISIs)
+        ISIs = ISIs*1000
+        ISIs = np.concatenate((ISIs, ISIs*-1))
+    
+        ISIs_df.loc[len(ISIs_df.index)] = [ISIs, Fv, Rtot]
+        
+    # if every ISI violation fraction rounded to 3 decimals is the same
+    if np.round(ISIs_df['Fv'].values[0], decimals=3) == 0.003:
+        print('check1')
+        if np.round(ISIs_df['Fv'].values[1], decimals=3) == 0.003:
+            print('check2')
+            if np.round(ISIs_df['Fv'].values[2], decimals=3) == 0.003:
+                print('check3')
+                done = 1
+    
+JV_utils.save_sim(ISIs_df, 'ChangeOverlap')
+
+fig, ax = plt.subplots(3,3)
+
+for i in range(3):
+    plot_ISIs(ISIs_df, i, ax, 0, i, 'blue')
     
 # %% generate PSTH traces
 
 fig, ax = plt.subplots()
-plt.plot(true1*true_scale)
-plt.plot(rogue1*150)
+plt.plot(true1*true_scales[0])
+plt.plot(rogue1*rogue_scales[0])
+ax.set_ylim([-0.5, 9.5])
 
 fig, ax = plt.subplots()
-plt.plot(true1*true_scale)
-plt.plot(rogue2*150)
+plt.plot(true1*true_scales[1])
+plt.plot(rogue2*rogue_scales[1])
+ax.set_ylim([-0.5, 9.5])
 
 fig, ax = plt.subplots()
-plt.plot(true1*true_scale)
-plt.plot(rogue3*150)
+plt.plot(true1*true_scales[2])
+plt.plot(rogue3*rogue_scales[2])
+ax.set_ylim([-0.5, 9.5])
 
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'

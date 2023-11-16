@@ -191,7 +191,7 @@ def FDR_master(ISIviol, Rtot, Rout_unit, N, tau=2.5, tau_c=0):
 # takes in n x m array of PSTHs, where n is the number of neurons and m is the
 # number of time points, and ISI_viol, a 1D array or list of length n of ISI
 # violation fractions (violations/spikes)
-def pred_FDR(PSTHs, ISI_viol, tau_c=0):
+def pred_FDR(PSTHs, ISI_viol, tau=2.5, tau_c=0):
     N = len(PSTHs)
     
     PSTHs_unit = np.zeros(np.shape(PSTHs))
@@ -209,7 +209,7 @@ def pred_FDR(PSTHs, ISI_viol, tau_c=0):
         others_mean = np.mean(others_PSTH, axis=0)
         others_unit = others_mean/np.linalg.norm(others_mean)
         
-        inf_FDR = FDR_master(ISI_viol[i], PSTHs[i,:], others_unit, N=float('inf'), tau_c=tau_c)
+        inf_FDR = FDR_master(ISI_viol[i], PSTHs[i,:], others_unit, N=float('inf'), tau=tau, tau_c=tau_c)
         if np.isnan(inf_FDR):
             inf_FDRs.append(1)
         else:
@@ -217,7 +217,7 @@ def pred_FDR(PSTHs, ISI_viol, tau_c=0):
         
         unit_FDRs = []
         for j in other_idx:
-            temp = FDR_master(ISI_viol[i], PSTHs[i,:], PSTHs_unit[j,:], N=1, tau_c=tau_c)
+            temp = FDR_master(ISI_viol[i], PSTHs[i,:], PSTHs_unit[j,:], N=1, tau=tau, tau_c=tau_c)
             if np.isnan(temp):
                 unit_FDRs.append(0.5)
             else:

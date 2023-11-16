@@ -1,5 +1,5 @@
 
-myFolder = 'D:\FDR Predictions DATA\Juavinett et al\Neuropixels Collaboration\concatenated\';
+myFolder = 'E:\FDR Predictions DATA\Juavinett et al\Neuropixels Collaboration\concatenated\';
 filePattern = fullfile(myFolder, '*.mat');
 theFiles = dir(filePattern);
 names = {theFiles.name};
@@ -16,6 +16,7 @@ for m = 1:length(names)
     spikes = cell(num_clu,1);
     
     for i = 1:length(spike_times)
+        disp(i)
         spikes{cluster_ids(i)+1} = [spikes{cluster_ids(i)+1} spike_times(i)];
     end
     
@@ -63,6 +64,65 @@ for m = 1:length(names)
     save(strcat(names{m}, '_PSTHs.mat'), "PSTHs")
     save(strcat(names{m}, '_ISIviol.mat'), 'ISI_viol')
 end
+
+%% obtain homogeneous firing rates
+
+myFolder = 'E:\FDR Predictions DATA\Juavinett et al\Neuropixels Collaboration\concatenated\';
+filePattern = fullfile(myFolder, '*.mat');
+theFiles = dir(filePattern);
+names = {theFiles.name};
+
+FRs = {};
+ISI_viol = {};
+
+for m = 1:length(names)
+
+    disp(m)
+    load(strcat(myFolder, names{m}))
+
+    % 0-indexed 
+    cluster_ids = sp.clu;
+    spike_times = sp.st;
+
+    [cluster_ids,I] = sort(cluster_ids);
+    spike_times = spike_times(I);
+
+    switch_points = find(diff(cluster_ids));
+
+    num_clu = length(switch_points) + 1;
+    
+    spikes = cell(num_clu,1);
+
+    for k = 1:length(spikes)
+
+        if k == 1
+
+            spikes{k} = spike_times(1 : switch_points(1));
+            continue
+
+        elseif k == length(spikes)
+
+            spikes{k} = spike_times(switch_points(end) + 1 : end);
+            continue
+
+        end
+
+        spikes{k} = spike_times(switch_points(k-1) + 1 : switch_points(k));
+
+    end
+
+    for k = 1:length(spikes)
+        
+        num_spikes = length(spikes{k});
+        rec_time = max(spikes{k}) - min(spikes{k});
+        FRs{end+1} = num_spikes/rec_time;
+        viols = sum(diff(spikes{k}) < 0.0025);
+        ISI_viol{end+1} = viols/num_spikes;
+        
+    end
+
+end
+
 
 %%
 

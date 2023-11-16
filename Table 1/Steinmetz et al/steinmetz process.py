@@ -24,10 +24,9 @@ phy_annotation_str = 'clusters._phy_annotation.npy'
 
 # %%
 
-T = 4
+T = 3
 PSTHs_full = []
 ISI_viol_full = []
-ISIs = []
 
 for k in range(len(exps)):
     
@@ -65,7 +64,6 @@ for k in range(len(exps)):
         for trial in trials:
             n_spikes += len(trial)
             viols += sum(np.diff(trial) < 0.0025)
-            ISIs.append(np.diff(trial))
         
         ISI_viol[i] = viols/n_spikes if n_spikes != 0 else 0
             
@@ -89,5 +87,17 @@ np.save('steinmetz_ISI_viol.npy', ISI_viol_flat)
 
 test = np.load('steinmetz_PSTHs.npy')
 test2 = np.load('steinmetz_ISI_viol.npy')
+
+# %%
+
+all_annos = []
+
+for k in range(len(exps)):
+    
+    phy_annotation = np.load(exps[k] + '\\' + phy_annotation_str)
+    all_annos.extend(phy_annotation)
+    
+all_annos = np.concatenate(all_annos)
+
 
 

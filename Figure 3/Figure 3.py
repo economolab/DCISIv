@@ -52,7 +52,7 @@ class fullSim():
         self.Rtots = Rtots
         self.N_con = N_con
 
-# %% homogeneous firing sim vs analytic prediction, panel A, simulation
+# %% homogeneous firing sim vs analytic prediction, panel B, simulation
 
 def economo_Fv(Rin, Rout, tviol=0.0025):
 
@@ -184,7 +184,7 @@ mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
 plt.tight_layout()
 
-# %% homogeneous firing sim vs analytic prediction, panel B, simulation
+# %% homogeneous firing sim vs analytic prediction, panel A, simulation
 
 def economo_Fv(Rin, Rout, tviol=0.0025):
 
