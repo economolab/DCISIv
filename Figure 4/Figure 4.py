@@ -203,7 +203,7 @@ while done == 0:
     
     k = 100
     
-    N_con = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    N_con = [1, 2, 5, 10]
     N_con = np.array(choices(N_con, k=k), dtype='float')
     N_con[N_con == 10] = float('inf')
     
@@ -273,16 +273,22 @@ while done == 0:
         
     # if sum(np.isnan(np.array(pred_FDR))) == 0:
     done = 1
+    
+    pred_FDR = JV_utils.pred_FDR(Rtots_matrix, Fvs)
         
     sim = fullSim(pred_FDR, covs, FDRs, Rtots, N_con)
     
     JV_utils.save_sim(sim, 'fullSim')
+    
+
 
 # %% plotting
 
 import matplotlib as mpl
+import sklearn
 
-sim = JV_utils.load_sim('fullSim_07-15-2023_1')
+
+sim = JV_utils.load_sim('fullSim_11-25-2023_1')
 pred_FDR = sim.pred_FDR
 covs = sim.covs
 FDRs = sim.FDRs
@@ -292,6 +298,8 @@ N_con = sim.N_con
 pred_FDR = np.array(pred_FDR)
 FDRs = np.array(FDRs)
 
+mse = sklearn.metrics.mean_squared_error(FDRs, pred_FDR)
+rmse = mse**(1/2)
 
 idxs = np.array(N_con) == 1
 fig, ax = plt.subplots()
@@ -372,6 +380,12 @@ for m, loc in enumerate(locs):
         FDRs = FDRs[FDRs < 1]
         FDR_dist = FDRs
         FDRs = np.random.choice(FDR_dist, size=k)
+        
+        for i, x in enumerate(FDRs):
+            FDR_max = N_con[i]/(N_con[i] + 1)
+            if x > FDR_max:
+                x = FDR_max
+                FDRs[i] = x
             
         PSTH_idx = list(range(len(PSTHs)))
         idx_pairs = []
@@ -406,6 +420,8 @@ for m, loc in enumerate(locs):
             
             Rtot = Rin + Rout
             
+            PSTHs_run.append(Rtot)
+            
             center = np.average(Rin)*np.average(Rout[0])
             OF.append((np.dot(Rin, Rout)/1000 - center)/center)
             
@@ -414,17 +430,17 @@ for m, loc in enumerate(locs):
             Fvs.append(Fv)
             
             
-            single_pred = JV_utils.FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i])
+            # single_pred = JV_utils.FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i])
             
-            if np.isnan(single_pred):
-                single_pred = N_con[i]/(N_con[i] + 1)
-                if N_con[i] == float('inf'):
-                    single_pred = 1
+            # if np.isnan(single_pred):
+            #     single_pred = N_con[i]/(N_con[i] + 1)
+            #     if N_con[i] == float('inf'):
+            #         single_pred = 1
             
-            pred_FDR.append(single_pred)
+            # pred_FDR.append(single_pred)
         
-        pred_FDR = np.array(pred_FDR)
-        pred_FDR_old = pred_FDR
+        pred_FDR = JV_utils.pred_FDR(np.vstack(PSTHs_run), Fvs)
+        # pred_FDR_old = pred_FDR
         
         FDR_median[m,j] = np.median(pred_FDR)
         FDR_true_median[m,j] = np.median(FDR_dist)
@@ -439,10 +455,13 @@ JV_utils.save_sim(sim, 'PopMetSim')
 
 # %% load old sim data
 
-data = JV_utils.load_sim('PopMetSim_07-17-2023')
+data = JV_utils.load_sim('PopMetSim_11-25-2023')
 
 fig, ax = plt.subplots()
 plt.scatter(data.FDR_true_median, data.FDR_median, color='b', s=20)
+
+mse = sklearn.metrics.mean_squared_error(data.FDR_true_median, data.FDR_median)
+rmse = mse**(1/2)
 
 
 y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_true_median, data.FDR_median)
@@ -485,6 +504,9 @@ fig, ax = plt.subplots()
 plt.scatter(data.FDR_dist_true, data.FDR_avg, color='b', s=20)
 
 y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_dist_true, data.FDR_avg)
+
+mse = sklearn.metrics.mean_squared_error(data.FDR_dist_true, data.FDR_avg)
+rmse = mse**(1/2)
 
 
 x = [0, 0.4]
