@@ -455,7 +455,10 @@ JV_utils.save_sim(sim, 'PopMetSim')
 
 # %% load old sim data
 
-data = JV_utils.load_sim('PopMetSim_11-25-2023')
+import sklearn
+import matplotlib as mpl
+
+data = JV_utils.load_sim('PopMetSim_11-25-2023_2')
 
 fig, ax = plt.subplots()
 plt.scatter(data.FDR_true_median, data.FDR_median, color='b', s=20)
@@ -539,6 +542,68 @@ plt.rcParams['svg.fonttype'] = 'none'
 
 r2_score(data.FDR_dist_true, data.FDR_avg)
 plt.annotate('R^2 = 0.87', (0.2, 0.05), fontsize=20)
+
+# %% plot mean and median
+
+import sklearn
+import matplotlib as mpl
+
+data = JV_utils.load_sim('PopMetSim_11-25-2023_2')
+
+fig, ax = plt.subplots()
+plt.scatter(data.FDR_true_median, data.FDR_median, color='b', s=20)
+
+mse = sklearn.metrics.mean_squared_error(data.FDR_true_median, data.FDR_median)
+rmse = mse**(1/2)
+
+
+y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_true_median, data.FDR_median)
+
+
+x = [0, 0.4]
+y1 = reg.coef_*0 + reg.intercept_
+y2 = reg.coef_*0.4 + reg.intercept_
+y = [y1.item(), y2.item()]
+plt.plot(x, y, c='k', lw=2)
+
+plt.scatter(data.FDR_dist_true, data.FDR_avg, color='g', s=20)
+
+y_pred, reg, R2 = JV_utils.lin_reg(data.FDR_dist_true, data.FDR_avg)
+
+mse = sklearn.metrics.mean_squared_error(data.FDR_dist_true, data.FDR_avg)
+rmse = mse**(1/2)
+
+
+x = [0, 0.4]
+y1 = reg.coef_*0 + reg.intercept_
+y2 = reg.coef_*0.4 + reg.intercept_
+y = [y1.item(), y2.item()]
+plt.plot(x, y, c='k', lw=2)
+
+plt.xlim(0, 0.4)
+plt.ylim(0, 0.4)
+plt.plot([0, 0.4], [0, 0.4], 'k', ls='--')
+plt.xlabel('True Median FDR')
+plt.ylabel('Predicted Median FDR')
+# plt.title('MEDIAN', fontsize=18)
+
+
+plt.xticks(fontsize=14)
+plt.yticks(fontsize=14)
+plt.tight_layout()
+
+ax.set_aspect('equal')
+
+ax.set_xlim(-0.025, 0.425)
+ax.set_ylim(-0.025, 0.425)
+
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+
+r2_score(data.FDR_true_median, data.FDR_median)
+plt.annotate('R^2 = 0.85', (0.2, 0.05), fontsize=20)
+
+
 
 # %% recording time required to get coefficient of variation 
 
