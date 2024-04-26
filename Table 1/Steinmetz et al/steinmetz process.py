@@ -27,6 +27,7 @@ phy_annotation_str = 'clusters._phy_annotation.npy'
 T = 3
 PSTHs_full = []
 ISI_viol_full = []
+new_session_len = []
 
 for k in range(len(exps)):
     
@@ -70,9 +71,14 @@ for k in range(len(exps)):
         trials_flat = np.concatenate(trials, axis=0)
         PSTH = JV_utils.gen_PSTH(trials_flat, num_trials, T, 50)
         PSTHs[i,:] = PSTH
+        
+    not_multi = (phy_annotation != 1)
+    not_multi = not_multi.flatten()
     
-    PSTHs_full.append(PSTHs)
-    ISI_viol_full.append(ISI_viol)
+    new_session_len.append(sum(not_multi))
+    
+    PSTHs_full.append(PSTHs[not_multi,:])
+    ISI_viol_full.append(ISI_viol[not_multi])
     
 # np.save(exps[2] + '/' + 'PSTHs.npy', PSTHs)
 
@@ -82,6 +88,7 @@ PSTHs_flat = np.concatenate(PSTHs_full)
 ISI_viol_flat = np.concatenate(ISI_viol_full)
 np.save('steinmetz_PSTHs.npy', PSTHs_flat)
 np.save('steinmetz_ISI_viol.npy', ISI_viol_flat)
+np.save('sessions.npy', new_session_len)
 
 # %%
 

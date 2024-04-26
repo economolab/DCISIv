@@ -226,7 +226,7 @@ while done == 0:
         spks = neuronsim.sim_spikes_PSTH2(true1*true_scales[i], rogues[i]*rogue_scales[i], N=300, out_refrac=0)
         
         Fv = Fv_calc(spks)
-        Rtot = len(np.concatenate(spks))/(100*6)
+        Rtot = len(np.concatenate(spks))/(300*6)
     
         ISIs = []
         for trial in spks:
@@ -337,7 +337,7 @@ for i in range(3):
     plot_ISIs(ISIs_df, i, ax, 0, i, colors[i])
     
 for i in range(3):
-    ISIs_df = JV_utils.load_sim('ChangeOverlap_06-30-2023')
+    ISIs_df = JV_utils.load_sim('ChangeOverlap_09-25-2023')
     plot_ISIs(ISIs_df, i, ax, 1, i, colors[i])
     
 for i in range(3):

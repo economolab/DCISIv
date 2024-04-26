@@ -111,6 +111,9 @@ for m = 1:length(names)
 
     end
 
+    not_multi = (sp.cgs ~= 1);
+    spikes = spikes(not_multi);
+
     for k = 1:length(spikes)
         
         num_spikes = length(spikes{k});
@@ -120,6 +123,7 @@ for m = 1:length(names)
         ISI_viol{end+1} = viols/num_spikes;
         
     end
+
 
 end
 

@@ -92,9 +92,14 @@ for file in tqdm(onlyfiles):
     PSTHs_temp = []
     for j, unit in enumerate(aligned_units):
         PSTHs_temp.append(JV_utils.gen_PSTH(unit, n_trials, T, bin_size))
+        
+    single = (nwb_read.units.quality.data[:] != 'multi')
+    PSTHs_temp = np.stack(PSTHs_temp)
+    PSTHs_temp = PSTHs_temp[single, :]
+    ISI_viol_temp = np.array(ISI_viol_temp)[single]
     
     # censor period = 0.25 ms
-    pred = JV_utils.pred_FDR(np.stack(PSTHs_temp), ISI_viol_temp, tau=2.5, tau_c=0.25)
+    pred = JV_utils.pred_FDR(PSTHs_temp, ISI_viol_temp, tau=2.5, tau_c=0.25)
     
     FDRs.extend(pred)
     PSTHs.extend(PSTHs_temp)

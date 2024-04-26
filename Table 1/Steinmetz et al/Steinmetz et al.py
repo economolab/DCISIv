@@ -49,16 +49,13 @@ FDR_avg = []
 PSTHs = []
 ISI_viol = []
 
-sessions = [1085, 1146, 1089, 2073, 1569, 1435, 1029, 1707, 1364, 1591, 1409, 1219,
-            1262, 1228, 1134, 977, 727, 1350, 806, 1144, 795, 1109, 1455, 1426, 1266,
-            1161, 1251, 860, 1147, 1461, 1251, 778, 854, 928, 1425, 1409, 1907,
-            1041, 1793]
 
 path = r'C:\\Users\\jpv88\\Documents\\GitHub\\SpikeSim\\Table 1\\Steinmetz et al\\'
+sessions = np.load(path + 'sessions.npy')
 
     
-PSTHs_temp = np.load(path + 'PSTHs.npy')
-ISI_viol_temp = np.load(path + 'ISI_viol.npy')
+PSTHs_temp = np.load(path + 'steinmetz_PSTHs.npy')
+ISI_viol_temp = np.load(path + 'steinmetz_ISI_viol.npy')
 
 idx = 0
 

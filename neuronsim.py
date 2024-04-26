@@ -5,6 +5,8 @@ Created on Thu Apr 21 11:48:46 2022
 @author: jpv88
 """
 
+from elephant.spike_train_generation import StationaryInverseGaussianProcess
+from elephant.spike_train_generation import NonStationaryGammaProcess
 from elephant.spike_train_generation import NonStationaryPoissonProcess
 from elephant.spike_train_generation import StationaryPoissonProcess
 from matplotlib import cm
@@ -605,7 +607,7 @@ def sim_Fv_PSTH4(PSTH_in, PSTH_out, T=6, refractory_period=2.5, N=1000,
     for _ in range(neurons):
         clu_outs.append(NonStationaryPoissonProcess(rate_signal=sig_out,
                                               refractory_period=out_refrac))
-
+    
     for i in tqdm(range(N)):
         
         spks_in = clu_in.generate_spiketrain(as_array=True)
@@ -624,6 +626,59 @@ def sim_Fv_PSTH4(PSTH_in, PSTH_out, T=6, refractory_period=2.5, N=1000,
         Rtot[i] = len(spks_tot)/T
         
     return np.mean(F_v)
+
+# simulate multiple neurons with PSTHs being intermixed
+def sim_Fv_PSTH_gamma(PSTH_in, PSTH_out, T=6, N=1000, cv=0.1, neurons=1,
+                      refractory_period=2.5):
+    
+    F_v = np.zeros(N)
+    Rtot = np.zeros(N)
+    
+    if neurons != float('inf'):
+        neurons = int(neurons)
+        
+    if neurons == float('inf'):
+        out_refrac = 0
+        neurons = 1
+        
+    refractory_period = pq.Quantity(refractory_period, 'ms')
+    
+    
+    n = len(PSTH_in)
+    f = n/T
+    
+    PSTH_out = PSTH_out/neurons
+    
+    sig_in = AnalogSignal(PSTH_in, units='Hz', sampling_rate=f*pq.Hz)
+    sig_out = AnalogSignal(PSTH_out, units='Hz', sampling_rate=f*pq.Hz)
+    
+    clu_in = StationaryInverseGaussianProcess(rate_signal=sig_in,
+                                         cv=cv)
+    
+    clu_outs = []
+    for _ in range(neurons):
+        clu_outs.append(StationaryInverseGaussianProcess(rate_signal=sig_out,
+                                              cv=cv))
+    ISIs_full = []
+    for i in tqdm(range(N)):
+        
+        spks_in = clu_in.generate_spiketrain(as_array=True)
+        spks_out = []
+        for j in range(neurons):
+            spks_out.append(clu_outs[j].generate_spiketrain(as_array=True))
+        
+        spks_out = np.concatenate(spks_out)
+        
+        spks_tot = np.concatenate((spks_in, spks_out))
+        spks_tot = np.sort(spks_tot)
+        
+        ISIs = np.diff(spks_tot)
+        Nviols = sum(pq.Quantity(ISIs, 's') < refractory_period)
+        F_v[i] = Nviols/len(spks_tot) if len(spks_tot) != 0 else 0
+        Rtot[i] = len(spks_tot)/T
+        ISIs_full.append(ISIs)
+        
+    return np.mean(F_v), ISIs_full
 
 # simulate two neurons with PSTHs being intermixed
 def sim_spikes_PSTH(PSTH_in, PSTH_out, T=6, refractory_period=2.5, N=1000, 

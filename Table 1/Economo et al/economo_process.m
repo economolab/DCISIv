@@ -1,4 +1,4 @@
-myFolder = 'C:\Users\jpv88\Documents\FDR Predictions DATA\Economo et al\ProcessedData\';
+myFolder = 'E:\FDR Predictions DATA\Economo et al\Ephys\Code\ProcessedData\';
 filePattern = fullfile(myFolder, '*.mat');
 theFiles = dir(filePattern);
 names = {theFiles.name};
@@ -7,20 +7,27 @@ tau = 0.0025;
 ISI_viol = [];
 PSTHs = [];
 T = 6;
+quality = [];
 
 just_Tagged = false;
 
+% iterate through data files
 for m = 1:length(names)
     load(strcat(myFolder, names{m}))
     sessions = length(obj);
+
+    % iterate through sessions
     for i = 1:sessions
         neurons = length(obj{i}.eventSeriesHash.value);
+
+        % iterate through units
         for j = 1:neurons
             
             hash = obj{i}.eventSeriesHash.value(j);
             if (just_Tagged == true) && (hash{1}.collision.pass == 0) 
                 continue
             end
+            quality = [quality convertCharsToStrings(hash{1}.quality)];
             eventTimes = hash{1}.eventTimes;
             eventTrials = hash{1}.eventTrials;
             eventTrials = eventTrials(eventTimes >= -3 & eventTimes <= 3);
