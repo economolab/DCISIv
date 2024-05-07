@@ -25,25 +25,20 @@ from scipy.ndimage import gaussian_filter1d
 
 import JV_utils
 import neuronsim
+import gamma_spiking
 
 
+# %%
 
-# %% load in and preprocess PSTHs
-
-mat_contents = sio.loadmat('hidehiko_PSTHs')
-PSTHs = mat_contents['PSTHs']
-
-t = np.linspace(0, 6, 120)
-t_new = np.linspace(0, 6, 1000)
-
-PSTHs_new = []
-for i in range(len(PSTHs)):
-    smoothed = gaussian_filter1d(PSTHs[i], 3)
-    f = interpolate.interp1d(t, smoothed, kind='cubic')
-    y_new = f(t_new)
-    PSTHs_new.append(y_new)
+class fullSim():
     
-PSTHs = np.vstack(PSTHs_new)
+    def __init__(self, pred_FDR, FDRs, Rtots, N_con):
+       
+        self.pred_FDR = pred_FDR
+        self.FDRs = FDRs
+        self.Rtots = Rtots
+        self.N_con = N_con
+
 
 # %% predicted vs true across a range of conditions, panel D, simulation
 
@@ -56,11 +51,11 @@ def Rout_scale_ob(scale, args):
     Rout_old, Rout_avg_new = args
     return abs(np.average(scale*Rout_old) - Rout_avg_new)
 
-k = 1
+k = 100
 
-N_con = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+N_con = [1, 2, 5, 10]
 N_con = np.array(choices(N_con, k=k), dtype='float')
-N_con[N_con == 10] = float('inf')
+# N_con[N_con == 10] = float('inf')
 
 Rtots = [4, 20]
 Rtots = np.random.uniform(Rtots[0], Rtots[1], size=k)
@@ -68,143 +63,58 @@ Rtots = np.random.uniform(Rtots[0], Rtots[1], size=k)
 FDRs = []
 for _ in range(k):
     FDRs.append(uniform(0, 0.5))
-    
-PSTH_idx = list(range(len(PSTHs)))
-idx_pairs = []
-for _ in range(k):
-    idx_pairs.append(sample(PSTH_idx, 2))
 
-pred_FDR = []  
-
-covs = []    
+pred_FDR = []    
+Rtots_actual = [] 
     
 for i in range(k):
     
-    Rin = PSTHs[idx_pairs[i][0]]
-    Rout = PSTHs[idx_pairs[i][1]]
-    Rin[Rin<0] = 0
-    Rout[Rout<0] = 0
+    Fv, Rtot_actual = gamma_spiking.sim_Fv_lognormal(Rtots[i], 
+                                                 FDRs[i], 
+                                                 neurons=N_con[i],
+                                                 T=7200,
+                                                 CV=0.1,
+                                                 N=1)
+    Rtots_actual.append(Rtot_actual)
     
-    Rout_target = FDRs[i]*Rtots[i]
-    Rin_target = Rtots[i] - Rout_target
-    
-    scale = minimize_scalar(Rout_scale_ob, args=[Rin, Rin_target], 
-                        method='bounded', bounds=[0, 100]).x
-    Rin = Rin*scale
-
-    scale = minimize_scalar(Rout_scale_ob, 
-                        args=[Rout, (FDRs[i]/(1-FDRs[i]))*np.average(Rin)],
-                        method='bounded', bounds=[0, 100]).x
-    
-    Rout = scale*Rout
-    
-    Rtot = Rin + Rout
-    
-    center = np.average(Rin)*np.average(Rout[0])
-    covs.append(np.cov(Rin, Rout)[0,1])
-    
-    Fv, ISIs_full = neuronsim.sim_Fv_PSTH_gamma(Rin, 
-                                                Rout, 
-                                                neurons=N_con[i],
-                                                cv=0.1,
-                                                N=7200)
-    ISIs_full = np.concatenate(ISIs_full)
-    
-    print(np.min(ISIs_full))
-    
-    pred_FDR.append(FDR_master(Fv, Rtot, Rout/np.linalg.norm(Rout), N_con[i]))
-    
-# %% test
-
-from random import choices, sample, uniform
-from scipy.optimize import minimize_scalar
-
-from JV_utils import FDR_master
-
-def Rout_scale_ob(scale, args):
-    Rout_old, Rout_avg_new = args
-    return abs(np.average(scale*Rout_old) - Rout_avg_new)
-
-k = 1
-
-N_con = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-N_con = np.array(choices(N_con, k=k), dtype='float')
-N_con[N_con == 10] = float('inf')
-
-Rtots = [4, 20]
-Rtots = np.random.uniform(Rtots[0], Rtots[1], size=k)
-
-FDRs = []
-for _ in range(k):
-    FDRs.append(uniform(0, 0.5))
-    
-PSTH_idx = list(range(len(PSTHs)))
-idx_pairs = []
-for _ in range(k):
-    idx_pairs.append(sample(PSTH_idx, 2))
-
-pred_FDR = []  
-
-covs = []    
-    
-for i in range(k):
-    
-    Rin = PSTHs[idx_pairs[i][0]]
-    Rout = PSTHs[idx_pairs[i][1]]
-    Rin[Rin<0] = 0
-    Rout[Rout<0] = 0
-    
-    Rout_target = FDRs[i]*Rtots[i]
-    Rin_target = Rtots[i] - Rout_target
-    
-    scale = minimize_scalar(Rout_scale_ob, args=[Rin, Rin_target], 
-                        method='bounded', bounds=[0, 100]).x
-    Rin = Rin*scale
-
-    scale = minimize_scalar(Rout_scale_ob, 
-                        args=[Rout, (FDRs[i]/(1-FDRs[i]))*np.average(Rin)],
-                        method='bounded', bounds=[0, 100]).x
-    
-    Rout = scale*Rout
-    
-    Rtot = Rin + Rout
-    
-    center = np.average(Rin)*np.average(Rout[0])
-    covs.append(np.cov(Rin, Rout)[0,1])
-    
-    spks = neuronsim.sim_spikes_PSTH(Rin, Rout, out_refrac=2.5, N=30000)
-    spks = np.concatenate(spks)
-    R_actual = len(spks)/(7200*6)
-    
-
+    Rtot_actual = [Rtot_actual] * 100
+    Rout_hat = Rtot_actual/np.linalg.norm(Rtot_actual)
+    pred_FDR_temp = FDR_master(Fv, Rtot_actual, Rout_hat, N_con[i])
+    if pred_FDR_temp > 0.5:
+        pred_FDR.append(0.5)
+    else:
+        pred_FDR.append(pred_FDR_temp)
     
     
 # %%
-sim = fullSim(pred_FDR, covs, FDRs, Rtots, N_con)
-JV_utils.save_sim(sim, 'fullSim')
+sim = fullSim(pred_FDR, FDRs, Rtots_actual, N_con)
+JV_utils.save_sim(sim, 'CV0.1_lognormal')
 
     
 # %% plotting
 
 import matplotlib as mpl
 
-sim = JV_utils.load_sim('fullSim_07-12-2023_5')
+sim_name = 'CV0.1_lognormal_05-04-2024'
+
+sim = JV_utils.load_sim(sim_name)
 pred_FDR = sim.pred_FDR
-covs = sim.covs
 FDRs = sim.FDRs
 Rtots = sim.Rtots
 N_con = sim.N_con
+N_con[N_con == float('inf')] = 10
 
 pred_FDR = np.array(pred_FDR)
 FDRs = np.array(FDRs)
 
 idxs = np.array(N_con) == 1
 fig, ax = plt.subplots()
-plt.scatter(FDRs, pred_FDR, c='blue', s=24)
+plt.scatter(FDRs, pred_FDR, c=N_con, s=24)
 plt.plot([0, 0.5], [0, 0.5], ls='dashed', c='k', lw=2)
 plt.xlabel('True FDR', fontsize=16)
 plt.ylabel('Predicted FDR', fontsize=16)
-plt.text(0.3, 0.1, '$R^2$ = 0.98', fontsize=16)
+plt.text(0.3, 0.1, '$R^2$ = 0.99', fontsize=16)
+plt.title(sim_name, fontsize=16)
 
 y_pred, reg, R2 = JV_utils.lin_reg(FDRs, pred_FDR)
 
@@ -227,5 +137,66 @@ plt.tight_layout()
 
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
+
+# %%
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(1, 1)
+
+import gamma_spiking
+
+rate = 10
+refractory_period = 0.0025
+CV = 2
+t_stop = 2
+
+spikes = gamma_spiking.gen_spikes_lognormal(CV, t_stop, rate, refractory_period)
+
+ax.eventplot(spikes)
+
+# %%
+
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(1, 1)
+
+# from scipy.stats import expon, gamma, invgauss, lognorm
+
+# rate = 10
+# refractory_period = 0.0025
+# CV = 0.1
+
+# def gamma_isi_gen(CV, refractory_period, rate):
+    
+#     shape_factor = 1/(CV**2)
+#     scale = (1/(shape_factor*rate)) - (refractory_period/shape_factor)
+#     isi_generator = gamma(a=shape_factor, scale=scale)
+    
+#     return isi_generator
+
+# def invgauss_isi_gen(CV, refractory_period, rate):
+    
+#     nu = (1-refractory_period*rate)/rate
+#     lam = nu/(CV**2)
+#     isi_generator = invgauss(mu=nu/lam, loc=refractory_period, scale=lam)
+    
+#     return isi_generator
+
+# def lognorm_isi_gen(CV, refractory_period, rate):
+    
+#     sigma = np.sqrt(np.log(CV**2 + 1))
+#     mu = np.log((1/rate) - refractory_period) - (sigma**2)/2
+#     isi_generator = lognorm(s=sigma, scale=np.exp(mu))
+    
+#     return isi_generator
+
+# isi_generator = gamma_isi_gen(CV, refractory_period, rate)
+
+# x = np.linspace(isi_generator.ppf(0.0001),
+#                 isi_generator.ppf(0.9999), 1000)
+
+# ax.plot(x, isi_generator.pdf(x),
+#        'r-', lw=2, alpha=0.6)
+
+# plt.show()
 
 

@@ -186,6 +186,12 @@ def FDR_master(ISIviol, Rtot, Rout_unit, N, tau=2.5, tau_c=0):
     Rout_avg = np.average(Rout_mag*np.array(Rout_unit))
     FDR = Rout_avg/Rtot_avg
     
+    if np.isnan(FDR):
+        if N == float('inf'):
+            FDR = 1
+        else:
+            FDR = N / (N + 1)
+    
     return FDR
 
 # takes in n x m array of PSTHs, where n is the number of neurons and m is the
