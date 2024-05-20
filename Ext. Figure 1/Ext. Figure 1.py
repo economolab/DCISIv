@@ -73,7 +73,7 @@ for i in range(k):
                                                  FDRs[i], 
                                                  neurons=N_con[i],
                                                  T=7200,
-                                                 CV=0.1,
+                                                 CV=2,
                                                  N=1)
     Rtots_actual.append(Rtot_actual)
     
@@ -88,14 +88,13 @@ for i in range(k):
     
 # %%
 sim = fullSim(pred_FDR, FDRs, Rtots_actual, N_con)
-JV_utils.save_sim(sim, 'CV0.1_lognormal')
-
+JV_utils.save_sim(sim, 'CV2_lognorm5')
     
 # %% plotting
 
 import matplotlib as mpl
 
-sim_name = 'CV0.1_lognormal_05-04-2024'
+sim_name = 'CV2_lognorm5_05-15-2024'
 
 sim = JV_utils.load_sim(sim_name)
 pred_FDR = sim.pred_FDR
@@ -109,11 +108,11 @@ FDRs = np.array(FDRs)
 
 idxs = np.array(N_con) == 1
 fig, ax = plt.subplots()
-plt.scatter(FDRs, pred_FDR, c=N_con, s=24)
+plt.scatter(FDRs, pred_FDR, c='b', s=24)
 plt.plot([0, 0.5], [0, 0.5], ls='dashed', c='k', lw=2)
 plt.xlabel('True FDR', fontsize=16)
 plt.ylabel('Predicted FDR', fontsize=16)
-plt.text(0.3, 0.1, '$R^2$ = 0.99', fontsize=16)
+plt.text(0.3, 0.1, '$R^2$ = 0.98', fontsize=16)
 plt.title(sim_name, fontsize=16)
 
 y_pred, reg, R2 = JV_utils.lin_reg(FDRs, pred_FDR)
@@ -138,6 +137,10 @@ plt.tight_layout()
 mpl.rcParams['image.composite_image'] = False
 plt.rcParams['svg.fonttype'] = 'none'
 
+from sklearn.metrics import mean_squared_error
+
+print(np.sqrt(mean_squared_error(FDRs, pred_FDR)))
+
 # %%
 
 import matplotlib.pyplot as plt
@@ -147,56 +150,95 @@ import gamma_spiking
 
 rate = 10
 refractory_period = 0.0025
-CV = 2
-t_stop = 2
+CV = 1
+t_stop = 1
 
-spikes = gamma_spiking.gen_spikes_lognormal(CV, t_stop, rate, refractory_period)
+spikes = []
+while len(spikes) != rate*t_stop:
+    spikes = gamma_spiking.gen_spikes_gamma(CV, t_stop, rate, refractory_period)
 
 ax.eventplot(spikes)
+ax.set_xlim(0, 1)
 
 # %%
 
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots(1, 1)
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(1, 1)
 
-# from scipy.stats import expon, gamma, invgauss, lognorm
+from scipy.stats import expon, gamma, invgauss, lognorm
 
-# rate = 10
-# refractory_period = 0.0025
-# CV = 0.1
+rate = 10
+refractory_period = 0.0025
+CV1 = 0.5
+CV2 = 1
+CV3 = 2
 
-# def gamma_isi_gen(CV, refractory_period, rate):
+def gamma_isi_gen(CV, refractory_period, rate):
     
-#     shape_factor = 1/(CV**2)
-#     scale = (1/(shape_factor*rate)) - (refractory_period/shape_factor)
-#     isi_generator = gamma(a=shape_factor, scale=scale)
+    shape_factor = 1/(CV**2)
+    scale = (1/(shape_factor*rate)) - (refractory_period/shape_factor)
+    isi_generator = gamma(a=shape_factor, scale=scale)
     
-#     return isi_generator
+    return isi_generator
 
-# def invgauss_isi_gen(CV, refractory_period, rate):
+def invgauss_isi_gen(CV, refractory_period, rate):
     
-#     nu = (1-refractory_period*rate)/rate
-#     lam = nu/(CV**2)
-#     isi_generator = invgauss(mu=nu/lam, loc=refractory_period, scale=lam)
+    nu = (1-refractory_period*rate)/rate
+    lam = nu/(CV**2)
+    isi_generator = invgauss(mu=nu/lam, loc=refractory_period, scale=lam)
     
-#     return isi_generator
+    return isi_generator
 
-# def lognorm_isi_gen(CV, refractory_period, rate):
+def lognorm_isi_gen(CV, refractory_period, rate):
     
-#     sigma = np.sqrt(np.log(CV**2 + 1))
-#     mu = np.log((1/rate) - refractory_period) - (sigma**2)/2
-#     isi_generator = lognorm(s=sigma, scale=np.exp(mu))
+    sigma = np.sqrt(np.log(CV**2 + 1))
+    mu = np.log((1/rate) - refractory_period) - (sigma**2)/2
+    isi_generator = lognorm(s=sigma, scale=np.exp(mu))
     
-#     return isi_generator
+    return isi_generator
 
-# isi_generator = gamma_isi_gen(CV, refractory_period, rate)
+isi_generator1 = lognorm_isi_gen(CV1, refractory_period, rate)
+isi_generator2 = lognorm_isi_gen(CV2, refractory_period, rate)
+isi_generator3 = lognorm_isi_gen(CV3, refractory_period, rate)
 
-# x = np.linspace(isi_generator.ppf(0.0001),
-#                 isi_generator.ppf(0.9999), 1000)
+x = np.linspace(0,
+                0.3, 1000)
 
-# ax.plot(x, isi_generator.pdf(x),
-#        'r-', lw=2, alpha=0.6)
+pdf1 = isi_generator1.pdf(x)
+pdf2 = isi_generator2.pdf(x)
+pdf3 = isi_generator3.pdf(x)
 
-# plt.show()
+# pdf3[0] = 500
+
+x += 0.0025
+
+x = np.insert(x, 0, 0.0024999)
+x = np.insert(x, 0, 0)
+
+pdf1 = np.insert(pdf1, 0, 0)
+pdf1 = np.insert(pdf1, 0, 0)
+pdf2 = np.insert(pdf2, 0, 0)
+pdf2 = np.insert(pdf2, 0, 0)
+pdf3 = np.insert(pdf3, 0, 0)
+pdf3 = np.insert(pdf3, 0, 0)
+
+ax.plot(x, pdf1,
+        'r-', lw=2, alpha=0.6)
+
+ax.plot(x, pdf2,
+        'b-', lw=2, alpha=0.6)
+
+ax.plot(x, pdf3,
+        'g-', lw=2, alpha=0.6)
+
+plt.tight_layout()
+
+ax.set_xlim(0, 0.3)
+ax.set_ylim(0, 25)
+
+mpl.rcParams['image.composite_image'] = False
+plt.rcParams['svg.fonttype'] = 'none'
+
+plt.show()
 
 
