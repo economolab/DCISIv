@@ -32,7 +32,7 @@ from scipy import interpolate
 from scipy.ndimage import gaussian_filter1d
 
 
-import DCISIv
+from DCISIv import DCISIv
 
 # %% load in and preprocess PSTHs
 
@@ -52,6 +52,9 @@ for i in range(len(PSTHs)):
 PSTHs = np.vstack(PSTHs_new)
 ISI_v = (np.repeat(0.01, 755))
 
+PSTHs_homo = [np.mean(x) for x in PSTHs_new]
+
 # %%
 
-test = DCISIv.calc_FDR(PSTHs, ISI_v)
+res = DCISIv(PSTHs_homo, ISI_v, N=(2,3,4,5)).res
+
