@@ -22,7 +22,11 @@ class DCISIv():
         self.ISI_v = ISI_v
         self.tau = tau 
         self.tau_c = tau_c
-        self.N = N
+        
+        if hasattr(N, "__len__"):
+            self.N = N
+        else:
+            self.N = [N]
         
         self.tau = self.tau*(10**-3)
         self.tau_c = self.tau_c*(10**-3)
@@ -41,6 +45,8 @@ class DCISIv():
                 
         match self.model:
             case 'homo':
+                if any(self.f_t <= 0):
+                    raise Exception('All input f_t must be greater than 0')
                 FDRs = self.pred_FDR_homo()
             case 'inhomo':
                 FDRs = self.pred_FDR_inhomo()
@@ -136,7 +142,7 @@ class DCISIv():
     def build_params_homo(self, i, N):
         
         params = {}
-        params['f_t'] = self.f_t[i,:]
+        params['f_t'] = self.f_t[i]
         params['ISI_v'] = self.ISI_v[i]
         params['N'] = N
         params['tau_e'] = self.tau_e
