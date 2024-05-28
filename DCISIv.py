@@ -253,6 +253,9 @@ class DCISIv():
                     else:
                         comparisons = np.floor((n_neurons - 1) / N)
                         
+                    FP_idx = sample(range(n_neurons - 1), N*comparisons)
+                    FP_idx = [FP_idx[x:x + N] for x in range(0, len(FP_idx), N)]
+                    
                     k_FDRs = []
                     for k in range(len(FP_idx)):
                         
