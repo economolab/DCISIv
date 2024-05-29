@@ -20,13 +20,21 @@ class DCISIv():
         
         self.f_t = f_t
         self.ISI_v = ISI_v
+        self.N = N
         self.tau = tau 
         self.tau_c = tau_c
         
-        if hasattr(N, "__len__"):
-            self.N = N
-        else:
-            self.N = [N]
+        # scalar input
+        if not hasattr(self.N, "__len__"):
+            self.N = [self.N]
+            
+        # scalar input
+        if not hasattr(self.ISI_v, "__len__"):
+            self.ISI_v = [self.ISI_v]
+            
+        # scalar input
+        if not hasattr(self.f_t, "__len__"):
+            self.f_t = [self.f_t]
         
         self.tau = self.tau*(10**-3)
         self.tau_c = self.tau_c*(10**-3)
@@ -236,38 +244,12 @@ class DCISIv():
             
             for i in range(n_neurons):
                 
+                params = self.build_params_homo(i, N)
                 
-                if N == float('inf'):
-  
-                    params = self.build_params_homo(i, N)
-                    
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=RuntimeWarning)
-                        FDRs[i,j] = self.FDR_homo(params)
-                        pbar.update(1)
-                    
-                else:
-                    
-                    if N*self.max_compare <= (n_neurons - 1):
-                        comparisons = self.max_compare
-                    else:
-                        comparisons = np.floor((n_neurons - 1) / N)
-                        
-                    FP_idx = sample(range(n_neurons - 1), N*comparisons)
-                    FP_idx = [FP_idx[x:x + N] for x in range(0, len(FP_idx), N)]
-                    
-                    k_FDRs = []
-                    for k in range(len(FP_idx)):
-                        
-                        params = self.build_params_homo(i, N)
-                        
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=RuntimeWarning)
-                            k_FDRs.append(self.FDR_homo(params))
-                        
-                    FDRs[i,j] = np.mean(k_FDRs)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    FDRs[i,j] = self.FDR_homo(params)
                     pbar.update(1)
-        
 
         pbar.close()
                         

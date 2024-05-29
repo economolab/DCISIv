@@ -30,6 +30,7 @@ from scipy.ndimage import gaussian_filter1d
 
 
 from DCISIv import DCISIv
+import SpikeSim
 
 # %% Data preparation
 
@@ -79,8 +80,8 @@ ISI_v = np.load('Inagaki2019_ISI_v.npy')
 
 # Distribution of ISI violation rates
 fig, ax = plt.subplots()
-plt.hist(f_t_homo, bins=20)
-plt.xlabel('f_t (Hz)')
+plt.hist(ISI_v, bins=20)
+plt.xlabel('ISI_v')
 plt.ylabel('Count')
 
 # %% Predicting FDR in real data
@@ -113,7 +114,58 @@ print(res['FDRs'])
 # res = DCISIv(f_t, ISI_v, tau=1).res
 # res = DCISIv(f_t, ISI_v, tau=2, tau_c=0.25).res
 
-# %% Predicting FDR from simulated ISI_v 
+# %% Predicting FDR from simulated ISI_v (homo)
+
+f_t = 8
+FDR = 0.15
+N = 2
+t_stop = 1000
+
+ISI_v = SpikeSim.sim_ISI_v_homo(f_t, FDR, N=N, t_stop=t_stop)
+pred_FDR = DCISIv(f_t, ISI_v, N=N).res['mean']
+
+print('\nObserved ISI_v = {:.3f}'.format(ISI_v))
+print('Predicted FDR = {:.3f}'.format(pred_FDR))
+print('True FDR = {:.3f}'.format(FDR))
+
+# %% Predicting FDR from simulated ISI_v (inhomo)
+
+f_t_avg = 8
+f_TP_idx = 0
+f_FP_idx = 1
+FDR = 0.15
+N = 1
+t_stop = 1000
+
+f_TP = f_t[f_TP_idx,:]
+f_FP = f_t[f_FP_idx,:]
+
+def PSTH_scale_ob(scale, args):
+    PSTH, PSTH_avg_target = args
+    return abs(np.average(scale*PSTH) - PSTH_avg_target)
+
+f_FP_avg = f_t_avg * FDR
+f_TP_avg = f_t_avg - f_FP_avg
+
+f_TP = f_TP / np.linalg.norm(f_TP)
+f_FP = f_FP / np.linalg.norm(f_FP)
+
+scale = minimize_scalar(PSTH_scale_ob, args=[f_TP, f_TP_avg], 
+                    method='bounded', bounds=[0, 100]).x
+f_TP = f_TP*scale
+
+scale = minimize_scalar(PSTH_scale_ob, 
+                    args=[f_FP, f_FP_avg],
+                    method='bounded', bounds=[0, 100]).x
+
+f_FP = scale * f_FP
+
+ISI_v = SpikeSim.sim_ISI_v_inhomo(f_t_avg, FDR, f_TP, f_FP, N=N, t_stop=t_stop)
+pred_FDR = DCISIv(np.vstack([f_TP, f_FP]), ISI_v, N=N).res['mean']
+
+print('\nObserved ISI_v = {:.3f}'.format(ISI_v))
+print('Predicted FDR = {:.3f}'.format(pred_FDR))
+print('True FDR = {:.3f}'.format(FDR))
 
 
 # %% homogeneous firing sim vs analytic prediction, panel A, simulation
