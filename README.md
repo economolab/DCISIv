@@ -1,3 +1,5 @@
+# Quick-start guide
+
 Decisively quantify cross-contamination in spike-sorted electrophysiology data using DCISIv. 
 
 ```python
