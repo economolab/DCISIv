@@ -40,7 +40,9 @@ def sim_ISI_v_homo(f_t, FDR, t_stop=1000, tau=2.5, N=1):
     f_TP = pq.Quantity(f_TP, 'Hz')
     f_FP = pq.Quantity(f_FP, 'Hz')
     t_stop = pq.Quantity(t_stop, 's')
+    
     tau = pq.Quantity(tau, 'ms')
+    tau_FP = tau
 
         
     clu_TP = StationaryPoissonProcess(rate=f_TP, t_stop=t_stop, 
@@ -68,7 +70,7 @@ def sim_ISI_v_homo(f_t, FDR, t_stop=1000, tau=2.5, N=1):
     return ISI_v 
 
 # simulate multiple neurons with PSTHs being intermixed
-def sim_ISI_v_inhomo(f_t, FDR, f_TP, f_FP, T=6, tau=2.5, N=1, t_stop=1000):
+def sim_ISI_v_inhomo(f_TP, f_FP, T=6, tau=2.5, N=1, t_stop=1000):
     
     if N != float('inf'):
         tau_FP = tau

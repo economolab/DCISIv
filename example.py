@@ -11,23 +11,10 @@ abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
-import sys
-sys.path.append("..") # Adds higher directory to python modules path.
-
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.io as sio
 
-from random import choices, sample
 from scipy.optimize import minimize_scalar
-from scipy.stats import cauchy
-from scipy.interpolate import splev, splrep
-from sklearn.metrics import r2_score
-from scipy import stats
-from scipy import interpolate
-from scipy.ndimage import gaussian_filter1d
-
 
 from DCISIv import DCISIv
 import SpikeSim
@@ -116,13 +103,13 @@ print(res['FDRs'])
 
 # %% Predicting FDR from simulated ISI_v (homo)
 
-f_t = 8
+f_t_avg = 8
 FDR = 0.15
 N = 2
-t_stop = 1000
+t_stop = 10000
 
-ISI_v = SpikeSim.sim_ISI_v_homo(f_t, FDR, N=N, t_stop=t_stop)
-pred_FDR = DCISIv(f_t, ISI_v, N=N).res['mean']
+ISI_v = SpikeSim.sim_ISI_v_homo(f_t_avg, FDR, N=N, t_stop=t_stop)
+pred_FDR = DCISIv(f_t_avg, ISI_v, N=N).res['mean']
 
 print('\nObserved ISI_v = {:.3f}'.format(ISI_v))
 print('Predicted FDR = {:.3f}'.format(pred_FDR))
@@ -135,7 +122,7 @@ f_TP_idx = 0
 f_FP_idx = 1
 FDR = 0.15
 N = 1
-t_stop = 1000
+t_stop = 10000
 
 f_TP = f_t[f_TP_idx,:]
 f_FP = f_t[f_FP_idx,:]
@@ -160,52 +147,11 @@ scale = minimize_scalar(PSTH_scale_ob,
 
 f_FP = scale * f_FP
 
-ISI_v = SpikeSim.sim_ISI_v_inhomo(f_t_avg, FDR, f_TP, f_FP, N=N, t_stop=t_stop)
-pred_FDR = DCISIv(np.vstack([f_TP, f_FP]), ISI_v, N=N).res['mean']
+ISI_v = SpikeSim.sim_ISI_v_inhomo(f_TP, f_FP, N=N, t_stop=t_stop)
+pred_FDR = DCISIv(np.vstack([f_TP + f_FP, f_FP]), [ISI_v, 0], N=N).res['FDRs']['mean'][0]
 
 print('\nObserved ISI_v = {:.3f}'.format(ISI_v))
 print('Predicted FDR = {:.3f}'.format(pred_FDR))
 print('True FDR = {:.3f}'.format(FDR))
 
-
-# %% homogeneous firing sim vs analytic prediction, panel A, simulation
-
-def economo_Fv(Rin, Rout, tviol=0.0025):
-
-    Rviol = 2*tviol*Rin*Rout + 0.5*(Rout**2)*2*tviol
-    if Rin + Rout != 0:
-        
-        Fv = Rviol/(Rin + Rout)
-    else:
-        Fv = 0
-
-    return Fv
-
-def kleinfeld_Fv(Rin, Rout, tviol=0.0025):
-
-    Rviol = 2*tviol*Rin*Rout
-    if Rin + Rout != 0:
-        
-        Fv = Rviol/(Rin + Rout)
-    else:
-        Fv = 0
-
-    return Fv
-
-
-FDRs = [0.05, 0.20, 0.5]
-Rtot = np.arange(1, 21, 1)
-
-economo_sim_Fv = np.zeros((len(FDRs), len(Rtot)))
-kleinfeld_sim_Fv = np.zeros((len(FDRs), len(Rtot)))
-
-for i , val in enumerate(Rtot):
-    for j, val2 in enumerate(FDRs):
-        economo_sim_Fv[j, i] = neuronsim.sim_Fv_Fig1(val, FDR=val2, t_stop=1000)[0]
-        kleinfeld_sim_Fv[j, i] = neuronsim.sim_Fv_Fig1(val, FDR=val2, t_stop=1000, 
-                                                      out_refrac=2.5)[0]
-        
-# %%
-
-res = DCISIv(Rtot, economo_sim_Fv[2,:], N=float('inf')).res
 

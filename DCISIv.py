@@ -157,9 +157,7 @@ class DCISIv():
         
         return params
         
-    # takes in n x m array of PSTHs, where n is the number of neurons and m is the
-    # number of time points, and ISI_viol, a 1D array or list of length n of ISI
-    # violation fractions (violations/spikes)
+
     def pred_FDR_inhomo(self):
         
         n_neurons = self.f_t.shape[0]
@@ -203,16 +201,18 @@ class DCISIv():
                     else:
                         comparisons = np.floor((n_neurons - 1) / N)
                         
-                        
-                    FP_idx = sample(range(n_neurons - 1), N*comparisons)
-                    FP_idx = [FP_idx[x:x + N] for x in range(0, len(FP_idx), N)]
+                    if (n_neurons - 1) == N*comparisons:
+                        FP_idx = [[range(n_neurons - 1)]]
+                    else:
+                        FP_idx = sample(range(n_neurons - 1), N*comparisons)
+                        FP_idx = [FP_idx[x:x + N] for x in range(0, len(FP_idx), N)]
                     
                     k_FDRs = []
                     for k in range(len(FP_idx)):
                         
                         f_FP_unit = np.sum(other_f_t_unit[FP_idx[k],:], axis=0)
                         f_FP_unit = f_FP_unit / np.linalg.norm(f_FP_unit)
-                        params = self.build_params_inhomo(i, N, f_FP_unit)
+                        params = self.build_params_inhomo(i, N, np.squeeze(f_FP_unit))
                         
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", category=RuntimeWarning)
