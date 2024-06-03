@@ -1,4 +1,4 @@
-Decisively assess cross-contamination in spike-sorted electrophysiology data using DCISIv.
+Decisively assess cross-contamination in spike-sorted electrophysiology data using DCISIv (Decoding Cross-contamination using Inter-Spike-Interval violations).
 
 Pre-print link (Peer-reviewed publication link coming soon)
 https://www.biorxiv.org/content/10.1101/2023.12.21.572882v1
